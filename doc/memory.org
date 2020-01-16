@@ -20,6 +20,8 @@
 | > Ch1           | 0x01480 | 0x018E7 | 1128B |                                             |
 | ...             |         |         |       |                                             |
 | > Ch21          | 0x06E80 | 0x072E7 | 1128B |                                             |
+** No Transformations (regular network implementation)
+
 ** With Fused Conv1 and Conv2
 | Usage           |   Start |     End | Size  | Formula                                     |
 | Network Weight  | 0x00000 | 0x00FFF |       |                                             |

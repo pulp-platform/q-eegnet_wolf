@@ -1,6 +1,6 @@
 * Notation:
 | position                    | notation     | ranges                               |
-| Input                       | x0[ch, t]    | ch: [0, 22), and t: [0, 1125)        |
+| Input                       | x[ch, t]     | ch: [0, 22), and t: [0, 1125)        |
 | Activation after conv1      | y1[i, ch, t] | i: [0, 8), ch: [0, 22), t: [0, 1125) |
 | Activation after conv2      | y2[k, t]     | k: [0, 16), t: [0, 1125)             |
 | Activation after conv2 pool | x1[k, t]     | k: [0, 16), t: [0, 140)              |
@@ -8,6 +8,23 @@
 | Activation after conv4      | y4[k, t]     | k: [0, 16), t: [0, 140)              |
 | Activation after conv4 pool | x2[k, t]     | k: [0, 16), t: [0, 17)               |
 | Output                      | z[l]         | l: [0, 4)                            |
+* Steps without optimizations
+** Initially
+*** Load weights (<3k)
+** Layer 1
+*** Start DMA Transfer x[0, :] to l1
+*** ForEach ch: [0, 22), do:
+**** Wait until data x[ch, :] is available
+**** Wait until data y1[:, ch-2, :] is transfered back to l2
+**** Start DMA Transfer x[ch + 1, :] to l1
+**** ForEach i: [0, 8), do in parallel:
+***** Compute y1[i, ch, :]
+**** Synchronize
+**** Start DMA Transfer  y1[:, ch, :] to l2
+***** Will be 8 different DMAs to store the result correctly in l2 again
+*** Wait until y1[:, :, :] is transfered back to l2
+** Layer 2
+*** Start DMA Transfer y1[0, :, :] to l1
 * Implementation
 ** Total number of weights: less than 3kB
 ** Fusing Layer 1 and 2
@@ -40,6 +57,3 @@ Fusing together the first two convolutions (spectral convolution and spatial con
 | Weights | Input Data | Range A | Range B |
 |---------+------------+---------+---------|
 Size of range A and B is enough to store the largest activation array (after second convolution).
-** Steps:
-*** Initially
-**** Load 
