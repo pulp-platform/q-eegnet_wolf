@@ -1,0 +1,45 @@
+* Notation:
+| position                    | notation     | ranges                               |
+| Input                       | x0[ch, t]    | ch: [0, 22), and t: [0, 1125)        |
+| Activation after conv1      | y1[i, ch, t] | i: [0, 8), ch: [0, 22), t: [0, 1125) |
+| Activation after conv2      | y2[k, t]     | k: [0, 16), t: [0, 1125)             |
+| Activation after conv2 pool | x1[k, t]     | k: [0, 16), t: [0, 140)              |
+| Activation after conv3      | y3[k, t]     | k: [0, 16), t: [0, 140)              |
+| Activation after conv4      | y4[k, t]     | k: [0, 16), t: [0, 140)              |
+| Activation after conv4 pool | x2[k, t]     | k: [0, 16), t: [0, 17)               |
+| Output                      | z[l]         | l: [0, 4)                            |
+* Implementation
+** Total number of weights: less than 3kB
+** Fusing Layer 1 and 2
+Fusing together the first two convolutions (spectral convolution and spatial convolution)
+*** Benefits:
+- Reducing memory bandwidth by factor 5.6 (17.83%)
+- Same result
+- Still very good paralellizable on 8 cores, no overlapp
+- Everything fits into l1: All Weights, input sample and space for the result of the second convolution! (Everything can be done on 
+*** Method:
+- On core i: [0, 8)
+- For each sample t: [0, 1125), do:
+  - compute y1[i, ch, t] forall ch: [0, 22)
+  - compute y2[k, t] forall k: 2*i, 2*i+1
+*** Memory Requirements
+- Storing a time sample as 1152 values (e.g. 0x480) instead of 1125 (e.g. 0x465)
+- Input: 24.75kB = 1152 * 22 / 1024
+- Output: 18kB = 1152 * 16 / 1024
+- Intermediate: 176B = 8 * 22
+- Total: 42.92kB < 64kB on L1
+*** Bandwidth Improvements:
+- Intermediate memory requirements when not fusing: 198kB = 1152 * 22 * 8 / 1024
+- Total memory requirements without fusing: 240.75kB = 1152 * (22 + 22 * 8 + 16) / 1024
+- Total memory requirements with fusing: 42.92kB = (1152 * (22 + 16) + 176) / 1024
+- Improvement: Using 17.83% (with 100% being memory requirements without fusing)
+** With Fused:
+|---------+------------+---------+---------|
+| 3kB     | 25kB       | 18kB    | 18kB    |
+|---------+------------+---------+---------|
+| Weights | Input Data | Range A | Range B |
+|---------+------------+---------+---------|
+Size of range A and B is enough to store the largest activation array (after second convolution).
+** Steps:
+*** Initially
+**** Load 
