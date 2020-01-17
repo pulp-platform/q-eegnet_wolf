@@ -1,0 +1,8 @@
+* TODO Implement pooling before scaling
+- Requires different scale function: [[../python_utils/convert_torch_format.py::def%20div_factor_batch_norm(input_scale,%20weight_scale,%20output_scale,%20bn_scale,%20bn_offset,][convert_torch_format.py]]
+* DONE When scaling for batch norm, first add bias, and then divide by factor
+- Requires different scale function: [[../python_utils/convert_torch_format.py::def%20div_factor_batch_norm(input_scale,%20weight_scale,%20output_scale,%20bn_scale,%20bn_offset,][convert_torch_format.py]]
+- Different type in layer offset: [[../data/gen_net_header.py][gen_net_header.py]]
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2020-01-19 Sun 18:48]
+:END:

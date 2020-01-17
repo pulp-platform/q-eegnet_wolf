@@ -1,3 +1,7 @@
 __pycache__
 build
 *.pyc
+
+data/*.npz
+data/config.json
+src/cl/net.h
