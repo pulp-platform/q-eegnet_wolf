@@ -4,7 +4,7 @@ Class to geerate C Header Files
 
 __author__ = "Tibor Schneider"
 __email__ = "sctibor@student.ethz.ch"
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 __date__ = "2020/01/19"
 
 import re
