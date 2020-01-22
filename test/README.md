@@ -7,10 +7,10 @@ This folder contains the necessary codes for thesting the functions. The main te
 This file contains all the information needed for a single testcase. The main function is the function `test()`, which is called by `run_test.py`. Before this function is executed, the current directory is changed to the location of `testcase.py`.The following should be done inside the `test()` function:
 
 1. Generate the test vectors and compute the expected result
-2. Generate a header file to be included in the test
+2. Generate a header file to be included in the test (`header_file.HeaderFile`)
 3. Build the small test project, run it and pipe the output to a file (`make clean all run > result.out`)
-4. Parse the file, and extract the results
-5. Print the results of the test to `stdout`
+4. Parse the file, and extract the results (`test_utils.parse_output`)
+5. Print out the results of the test (`test_utils.TestLogger`)
 6. Return a summary, containing the number of test cases executed and the number of successful tests.
 
 Look at [example/testcase.py](example/testcase.py) to see an example of how the test can be used.

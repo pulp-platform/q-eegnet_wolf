@@ -6,3 +6,7 @@
 :LOGBOOK:
 - State "DONE"       from "TODO"       [2020-01-19 Sun 18:48]
 :END:
+* TODO Pooling layer will cut off the remaining elements, which do not fit into a full kernel (at the end)
+- Those values thus do not need to be computed
+- Also, for implementation, we can to this pooling in higher precision, and include the factor in the scaling
+* TODO add round constant to offset

@@ -1,5 +1,3 @@
-#! /usr/bin/python3
-
 """
 This script searches recursively the current directory and executes all "gen_test.py" files.
 """
@@ -15,18 +13,19 @@ import importlib.util
 
 TEST_FILENAME = "testcase.py"
 
-# setup environmental variables
-os.environ["EEGNET_WOLF_SRC_PATH"] = os.path.realpath(os.path.join(os.getcwd(), "../src"))
-os.environ["PYTHONPATH"] += ":" + os.path.realpath(os.path.join(os.getcwd(), "../python_utils"))
-
 old_cwd = os.getcwd()
 
 # keep track of statistics
 num_total = 0
 num_success = 0
 
+root_folder = "."
+if len(sys.argv) > 1:
+    root_folder = sys.argv[1]
+
+
 # search recursively all files
-for root, _, files in os.walk("."):
+for root, _, files in os.walk(root_folder):
     for filename in files:
         if filename == TEST_FILENAME:
             # import the file

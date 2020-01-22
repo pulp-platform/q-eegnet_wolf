@@ -4,9 +4,10 @@ These Utility functions enable easy unit tests for the EEGnet.
 
 __author__ = "Tibor Schneider"
 __email__ = "sctibor@student.ethz.ch"
-__version__ = "0.1.0"
-__date__ = "2020/01/19"
+__version__ = "0.1.1"
+__date__ = "2020/01/23"
 
+import numpy as np
 
 def parse_output(filename):
     """
@@ -16,6 +17,7 @@ def parse_output(filename):
         ## ID: result: [OK|FAIL]
         ## ID: cycles: N_CYCLES
         ## ID: instructions: N_INSTR
+        ## ID: Key: Value
 
     Multiple runs are allowed.
     Make sure, that you pipe the execution into a file, whose name is then passed into this function.
@@ -25,7 +27,7 @@ def parse_output(filename):
         parsed = parse_output("result.out")
 
     This function returns a dictionary in the form:
-        { "1": {"result": "OK", "cycles": 215, "instructions": 201}, ... }
+        { "1": {"result": "OK", "cycles": "215", "instructions": "201"}, ... }
     """
     parsed = {}
     with open(filename, "r") as _f:
@@ -39,10 +41,8 @@ def parse_output(filename):
                 parsed[parts[0]] = {}
             if parts[1] == "result":
                 parsed[parts[0]]["result"] = parts[2] == "OK"
-            if parts[1] == "cycles":
-                parsed[parts[0]]["cycles"] = int(parts[2])
-            if parts[1] == "instructions":
-                parsed[parts[0]]["instructions"] = int(parts[2])
+            else:
+                parsed[parts[0]][parts[1]] = parts[2]
     return parsed
 
 
@@ -67,19 +67,43 @@ class TestLogger:
         assert results
         if len(results) == 1:
             result = list(results.values())[0]
-            success_str = "Ok" if result["result"] else "FAIL"
-            print("{}: {} (cycles: {}, instructions: {})"
-                  .format(subcase_name, success_str, result["cycles"], result["instructions"]))
+            success_str = "..Ok" if result["result"] else "FAIL"
+            options = []
+            for k in sorted(result):
+                v = result[k]
+                if k == "result":
+                    continue
+                if isinstance(v, float) or isinstance(v, np.float32):
+                    options.append("{}: {:.2E}".format(k, v))
+                else:
+                    options.append("{}: {}".format(k, v))
+            options_str = ""
+            if options:
+                options_str = "[{}]".format(", ".join(options))
+            print("{}{} {}" .format(subcase_name.ljust(20, "."), success_str, options_str))
 
             # keep track of statistics
             self.num_cases += 1
             if result["result"]:
                 self.num_successful += 1
         else:
-            for case_id, result in results.items():
-                success_str = "Ok" if result["result"] else "FAIL"
-                print("{} [{}]: {} (cycles: {}, instructions: {})"
-                    .format(subcase_name, case_id, success_str, result["cycles"], result["instructions"]))
+            for case_id in sorted(results):
+                result = results[case_id]
+                success_str = "..Ok" if result["result"] else "FAIL"
+                options = []
+                for k in sorted(result):
+                    v = result[k]
+                    if k == "result":
+                        continue
+                    if isinstance(v, float) or isinstance(v, np.float32):
+                        options.append("{}: {:.2E}".format(k, v))
+                    else:
+                        options.append("{}: {}".format(k, v))
+                options_str = ""
+                if options:
+                    options_str = "[{}]".format(", ".join(options))
+                subcase_str = "{} {}".format(subcase_name, case_id)
+                print("{}{} {}" .format(subcase_str.ljust(20, "."), success_str, options_str))
 
                 # keep track of statistics
                 self.num_cases += 1

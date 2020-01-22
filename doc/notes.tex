@@ -1,0 +1,223 @@
+% Created 2020-01-21 Tue 15:05
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{grffile}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{textcomp}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{\today}
+\title{}
+\hypersetup{
+ pdfauthor={},
+ pdftitle={},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 26.3 (Org mode 9.1.9)}, 
+ pdflang={English}}
+\begin{document}
+
+\tableofcontents
+
+\section{Notation:}
+\label{sec:org16e74e1}
+\begin{center}
+\begin{tabular}{lll}
+position & notation & ranges\\
+Input & x[ch, t] & ch: [0, 22), and t: [0, 1125)\\
+Activation after conv1 & y1[i, ch, t] & i: [0, 8), ch: [0, 22), t: [0, 1125)\\
+Activation after conv2 & y2[k, t] & k: [0, 16), t: [0, 1125)\\
+Activation after conv2 pool & x1[k, t] & k: [0, 16), t: [0, 140)\\
+Activation after conv3 & y3[k, t] & k: [0, 16), t: [0, 140)\\
+Activation after conv4 & y4[k, t] & k: [0, 16), t: [0, 140)\\
+Activation after conv4 pool & x2[k, t] & k: [0, 16), t: [0, 17)\\
+Output & z[l] & l: [0, 4)\\
+\end{tabular}
+\end{center}
+\section{Steps without optimizations}
+\label{sec:orge526c85}
+\subsection{Initially}
+\label{sec:org127c1ba}
+\subsubsection{Load weights (<3k)}
+\label{sec:org83ae51c}
+\subsection{Layer 1}
+\label{sec:org72b6f0f}
+\subsubsection{Start DMA Transfer x[0, :] to l1}
+\label{sec:org8f8ab92}
+\subsubsection{ForEach ch: [0, 22), do:}
+\label{sec:org38bddd3}
+\begin{enumerate}
+\item Wait until data x[ch, :] is available
+\label{sec:org265520f}
+\item Wait until data y1[:, ch-2, :] is transfered back to l2
+\label{sec:orgce46aab}
+\item Start DMA Transfer x[ch + 1, :] to l1
+\label{sec:orgfb5cb88}
+\item ForEach i: [0, 8), do in parallel:
+\label{sec:org9af4525}
+\begin{enumerate}
+\item Compute y1[i, ch, :]
+\label{sec:org8c80e2c}
+\end{enumerate}
+\item Synchronize
+\label{sec:org4c10fe9}
+\item Start DMA Transfer  y1[:, ch, :] to l2
+\label{sec:org20ee52d}
+\begin{enumerate}
+\item Will be 8 different DMAs to store the result correctly in l2 again
+\label{sec:orgce72d71}
+\end{enumerate}
+\end{enumerate}
+\subsubsection{Wait until y1[:, :, :] is transfered back to l2}
+\label{sec:org0623b44}
+\subsection{Layer 2}
+\label{sec:orgd4e0942}
+\subsubsection{Start DMA Transfer y1[0, :, :] to l1}
+\label{sec:orgc121e3b}
+\section{Implementation}
+\label{sec:org6167c34}
+\subsection{Total number of weights: less than 3kB}
+\label{sec:org2db747d}
+\subsection{Fusing Layer 1 and 2}
+\label{sec:org14462de}
+Fusing together the first two convolutions (spectral convolution and spatial convolution)
+\subsubsection{Benefits:}
+\label{sec:orgf41aaee}
+\begin{itemize}
+\item Reducing memory bandwidth by factor 5.6 (17.83\%)
+\item Same result
+\item Still very good paralellizable on 8 cores, no overlapp
+\item Everything fits into l1: All Weights, input sample and space for the result of the second convolution! (Everything can be done on
+\end{itemize}
+\subsubsection{Method:}
+\label{sec:org4cfac08}
+\begin{itemize}
+\item On core i: [0, 8)
+\item For each sample t: [0, 1125), do:
+\begin{itemize}
+\item compute y1[i, ch, t] forall ch: [0, 22)
+\item compute y2[k, t] forall k: 2*i, 2*i+1
+\end{itemize}
+\end{itemize}
+\subsubsection{Memory Requirements}
+\label{sec:org97f12f0}
+\begin{itemize}
+\item Storing a time sample as 1152 values (e.g. 0x480) instead of 1125 (e.g. 0x465)
+\item Input: 24.75kB = 1152 * 22 / 1024
+\item Output: 18kB = 1152 * 16 / 1024
+\item Intermediate: 176B = 8 * 22
+\item Total: 42.92kB < 64kB on L1
+\end{itemize}
+\subsubsection{Bandwidth Improvements:}
+\label{sec:org65805e3}
+\begin{itemize}
+\item Intermediate memory requirements when not fusing: 198kB = 1152 * 22 * 8 / 1024
+\item Total memory requirements without fusing: 240.75kB = 1152 * (22 + 22 * 8 + 16) / 1024
+\item Total memory requirements with fusing: 42.92kB = (1152 * (22 + 16) + 176) / 1024
+\item Improvement: Using 17.83\% (with 100\% being memory requirements without fusing)
+\end{itemize}
+\subsection{With Fused:}
+\label{sec:org7f9c0b8}
+\begin{center}
+\begin{tabular}{llll}
+\hline
+3kB & 25kB & 18kB & 18kB\\
+\hline
+Weights & Input Data & Range A & Range B\\
+\hline
+\end{tabular}
+\end{center}
+Size of range A and B is enough to store the largest activation array (after second convolution).
+\section{Mathematical Simplificatoins}
+\label{sec:orgbe9f4b0}
+\subsection{Scale Factor for simple layer}
+\label{sec:orgbe83333}
+We have the integer representation: x' = x * R\(_{\text{x}}\)/S\(_{\text{x}}\), w' = w * R\(_{\text{w}}\)/S\(_{\text{w}}\) and y' = R\(_{\text{y}}\)/S\(_{\text{y}}\)
+The original model has the relation: y = x * w
+This leads to:
+
+\begin{verbatim}
+      x' * w'
+y' = ---------
+      factor
+
+          S_y * R_x * R_w
+factor = -----------------
+          R_y * S_x * S_w
+\end{verbatim}
+
+The idea here is to do all the factoring in one step.
+\subsubsection{With AvgPool}
+\label{sec:orgcb995bb}
+For pooling, we should add in the high precision before going back to the lower one (for better numerical stability)
+The following steps should be taken:
+\begin{enumerate}
+\item Compute x' * w' (convolution or dot product). The result will be in 32bit precision
+\item Do a SumPool
+\item Divide by the factor', which is factor' = n\(_{\text{pool}}\) * factor
+\end{enumerate}
+\subsubsection{Derivation}
+\label{sec:org0de50f4}
+let $a' = a \cdot \frac{R_a}{S_a}$ be the quantized integer representation of $a \in [-S_a, S_a]$ represented in the range $a' \in [-R_a, R_a]$.
+Let's consider a single layer with input $x$, weight $w$ and output $y$ with the relation
+\[ y = x \cdot w. \]
+This expression can be simplified to:
+\[\Rightarrow y' \cdot {S_y}{R_y} = x' \cdot \frac{S_x}{R_x} \cdot w' \cdot \frac{S_w}{R_w} \]
+\[\Rightarrow y' = x' \cdot w' \cdot \frac{S_x S_w R_y}{R_x R_w S_y} \]
+
+\subsection{Scale Factor + Batch Normalization}
+\label{sec:org0010f9b}
+We have the integer representation: x' = x * R\(_{\text{x}}\)/S\(_{\text{x}}\), w' = w * R\(_{\text{w}}\)/S\(_{\text{w}}\) and y' = R\(_{\text{y}}\)/S\(_{\text{y}}\)
+The original model has the relation: y = x * w * S\(_{\text{bn}}\) + O\(_{\text{bn}}\)
+This leads to:
+
+\begin{verbatim}
+      x' * w' + bias
+y' = ----------------
+         factor
+
+              S_y * R_x * R_w                O_bn * R_x * R_w
+factor = --------------------------, bias = -------------------
+           S_bn * R_y * S_x * S_w            S_bn * S_x * S_w
+\end{verbatim}
+
+The idea here is to add the bias before the fraction, to improve numerical stability.
+\subsubsection{With AvgPool}
+\label{sec:org780b07e}
+\begin{enumerate}
+\item Compute x' * w' (convolution or dot product). The result will be in 32bit.
+\item Do a SumPool
+\item Add bias' and divide by factor', with factor' = n\(_{\text{pool}}\) * factor, and bias' = n\(_{\text{pool}}\) * factor
+\end{enumerate}
+\subsection{Scale Factor + Batch Normalization + ReLU}
+\label{sec:org2b3a9cc}
+The original model has the relation: y = ReLU(x * w * S\(_{\text{bn}}\) + O\(_{\text{bn}}\))
+For the ReLU, we have the following identity: Relu(x) = max(x, 0). 
+This can be used to move the ReLU to a different point in the computation, while preserving the function.
+The idea is to do the ReLU first, then do pooling (if necessary) and apply scaling in this order.
+For this, we have the following relation:
+
+\begin{verbatim}
+      max(x' * w', -bias) + bias
+y' = ----------------------------
+               factor
+\end{verbatim}
+
+Here, the bias and the factor are the same as without ReLU.
+\subsubsection{With AvgPool}
+\label{sec:orgbffc90a}
+\begin{enumerate}
+\item Compute x' * w'
+\item Do max(x' * w', -bias). Here, we use the same bias without multiplying n\(_{\text{pool}}\)!
+\item Do a SumPool
+\item Add the bias' and divide by factor', with factor' = n\(_{\text{pool}}\) * factor and bias' = n\(_{\text{pool}}\)*factor.
+\end{enumerate}
+\end{document}

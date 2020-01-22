@@ -57,3 +57,121 @@ Fusing together the first two convolutions (spectral convolution and spatial con
 | Weights | Input Data | Range A | Range B |
 |---------+------------+---------+---------|
 Size of range A and B is enough to store the largest activation array (after second convolution).
+* Mathematical Simplificatoins
+** Scale Factor for simple layer
+We have the integer representation: x' = x * R_x/S_x, w' = w * R_w/S_w and y' = R_y/S_y
+The original model has the relation: y = x * w
+This leads to:
+
+#+BEGIN_SRC
+      x' * w'
+y' = ---------
+      factor
+
+          S_y * R_x * R_w
+factor = -----------------
+          R_y * S_x * S_w
+#+END_SRC
+
+The idea here is to do all the factoring in one step.
+*** With AvgPool
+For pooling, we should add in the high precision before going back to the lower one (for better numerical stability)
+The following steps should be taken:
+1. Compute x' * w' (convolution or dot product). The result will be in 32bit precision
+2. Do a SumPool
+3. Divide by the factor', which is factor' = n_pool * factor
+*** Derivation
+#+BEGIN_SRC latex
+let $a' = a \cdot \frac{R_a}{S_a}$ be the quantized integer representation of $a \in [-S_a, S_a]$ represented in the range $a' \in [-R_a, R_a]$.
+Let's consider a single layer with input $x$, weight $w$ and output $y$ with the relation
+\[ y = x \cdot w. \]
+This expression can be simplified to:
+\[\Leftrightarrow y' \cdot \frac{S_y}{R_y} = x' \cdot \frac{S_x}{R_x} \cdot w' \cdot \frac{S_w}{R_w} \]
+\[\Leftrightarrow y' = x' \cdot w' \cdot \frac{S_x S_w R_y}{R_x R_w S_y}\]
+\[ \LeftRightarrow \boxed{ y' = \frac{x' \cdot w'}{\frac{R_x R_w S_y}{S_x S_w R_y}} = \frac{x' \cdot w'}{C} }\]
+#+END_SRC
+** Scale Factor + Batch Normalization
+We have the integer representation: x' = x * R_x/S_x, w' = w * R_w/S_w and y' = R_y/S_y
+The original model has the relation: y = x * w * S_bn + O_bn
+This leads to:
+
+#+BEGIN_SRC
+      x' * w' + bias
+y' = ----------------
+         factor
+
+              S_y * R_x * R_w                O_bn * R_x * R_w
+factor = --------------------------, bias = -------------------
+           S_bn * R_y * S_x * S_w            S_bn * S_x * S_w
+#+END_SRC
+
+The idea here is to add the bias before the fraction, to improve numerical stability.
+*** With AvgPool
+1. Compute x' * w' (convolution or dot product). The result will be in 32bit.
+2. Do a SumPool
+3. Add bias' and divide by factor', with factor' = n_pool * factor, and bias' = n_pool * factor
+*** Derivation
+#+BEGIN_SRC latex
+let $a' = a \cdot \frac{R_a}{S_a}$ be the quantized integer representation of $a \in [-S_a, S_a]$ represented in the range $a' \in [-R_a, R_a]$.
+Let's consider a single layer with input $x$, weight $w$ and output $y$ with the relation
+\[ y = x \cdot w \cdot \gamma + \beta. \]
+Note, that the batch normalization was simplified to $\gamma$ and $\beta$.
+This expression can be simplified to:
+\[\Leftrightarrow y' \cdot \frac{S_y}{R_y} = x' \cdot \frac{S_x}{R_x} \cdot w' \cdot \frac{S_w}{R_w} \cdot \gamma + \beta \]
+\begin{align*}
+\Leftrightarrow y' &= \left(x' \cdot w' \cdot \frac{S_x S_w}{R_x R_w} \cdot \gamma + \beta \right) \cdot \frac{R_y}{S_y}  \\
+&= x' \cdot w' \cdot \frac{\gamma S_x S_w R_y}{R_x R_w S_y} + \frac{\beta R_y}{S_y} \\
+&= \frac{x' \cdot w'}{\frac{R_x R_w S_y}{\gamma S_x S_w R_y}} + \frac{\beta R_y}{S_y} \\
+&= \frac{x' \cdot w' + \frac{\beta R_y}{S_y} \cdot \frac{R_x R_w S_y}{\gamma S_x S_w R_y}}{\frac{R_x R_w S_y}{\gamma S_x S_w R_y}} \\
+\end{align*}
+\[ \LeftRightarrow \boxed{ y' = \frac{x' \cdot w' + \frac{\beta R_x R_w}{S_x S_w}}{\frac{R_x R_w S_y}{\gamma S_x S_w R_y}} = \frac{x' \cdot w' + B}{C} } \]
+#+END_SRC
+** Scale Factor + Batch Normalization + ReLU
+The original model has the relation: y = ReLU(x * w * S_bn + O_bn)
+For the ReLU, we have the following identity: Relu(x) = max(x, 0). 
+This can be used to move the ReLU to a different point in the computation, while preserving the function.
+The idea is to do the ReLU first, then do pooling (if necessary) and apply scaling in this order.
+For this, we have the following relation:
+
+#+BEGIN_SRC
+      max(x' * w', -bias) + bias
+y' = ----------------------------
+               factor
+#+END_SRC
+
+Here, the bias and the factor are the same as without ReLU.
+*** With AvgPool
+1. Compute x' * w'
+2. Do max(x' * w', -bias). Here, we use the same bias without multiplying n_pool!
+3. Do a SumPool
+4. Add the bias' and divide by factor', with factor' = n_pool * factor and bias' = n_pool*factor.
+*** Derivation
+#+BEGIN_SRC latex
+let $a' = a \cdot \frac{R_a}{S_a}$ be the quantized integer representation of $a \in [-S_a, S_a]$ represented in the range $a' \in [-R_a, R_a]$.
+Let's consider a single layer with input $x$, weight $w$ and output $y$ with the relation
+\[ y = ReLU(x \cdot w \cdot \gamma + \beta). \]
+Note, that the batch normalization was simplified to $\gamma$ and $\beta$.
+The ReLU is defined as $ReLU(x) = \max\{x,\ 0\}$.
+The expression can be simplified to:
+\[\Leftrightarrow y' \cdot \frac{S_y}{R_y} = \max \left\{ x' \cdot \frac{S_x}{R_x} \cdot w' \cdot \frac{S_w}{R_w} \cdot \gamma + \beta,\ 0 \right\}\]
+\begin{align*}
+\Leftrightarrow y' &= \max \left\{ x' \cdot w' \cdot \frac{\gamma S_x S_w}{R_x R_w} + \beta,\ 0 \right\} \cdot \frac{R_y}{S_y}  \\
+&= \left( \max \left\{ x' \cdot w' \cdot \frac{\gamma S_x S_w}{R_x R_w},\ - \beta \right\} + \beta \right) \cdot \frac{R_y}{S_y} \\
+&= \left( \max \left\{ x' \cdot w',\ - \beta \cdot \frac{R_x R_w}{\gamma S_x S_w} \right\} \cdot \frac{\gamma S_x S_w}{R_x R_w} + \beta \right) \cdot \frac{R_y}{S_y} \\
+&= \left( \max \left\{ x' \cdot w',\ - \frac{\beta R_x R_w}{\gamma S_x S_w} \right\} + \frac{\beta R_x R_w}{\gamma S_x S_w} \right) \cdot \frac{\gamma S_x S_w}{R_x R_w} \cdot \frac{R_y}{S_y} \\
+\end{align*}
+\[ \LeftRightarrow \boxed{ y' = \frac{\max \left\{ x' \cdot w',\ - \frac{\beta R_x R_w}{\gamma S_x S_w} \right\} + \frac{\beta R_x R_w}{\gamma S_x S_w} }{\frac{R_x R_w S_y}{\gamma S_x S_w R_y}} = \frac{\max \{ x' \cdot w', -B\} + B}{C} } \]
+#+END_SRC
+**** Derivation with Pooling
+#+BEGIN_SRC latex
+When averaging a total of $N$ outputs together, we get this relation
+\[ y = \frac{1}{N} \sum_{k=0}^N x_k \cdot w_k \ \Leftrightarrow\ y' = \frac{R_y}{N S_y} \sum_{k=0}^N x_k \cdot w_k \]
+Taking the equation from before and subsidizing $z_k \hat{=} y$, we get, that $z_k = x_k \cdot w_k$, and thus $x_k \cdot w_k = z_k' \cdot \frac{S_y}{R_y}$.
+Plugging this into the equation above yields
+\[ y' = \frac{R_y}{S_y} \sum_{k=0}^N z_k' \cdot \frac{S_y}{R_y} = \frac{1}{N} \sum_{k=0}^N z_k' \]
+\begin{align*}
+\Leftrightarrow y' &= \frac{1}{N} \sum_{k=0}^N \frac{\max\{ x_k' \cdot w_k',\ -B \} + B}{C}\\
+&= \frac{\sum_{k=0}^N \max\{ x_k' \cdot w_k',\ -B \} + B}{NC}
+\end{align*}
+\[ \boxed{ y' = \frac{\left( \sum_{k=0}^N \max\{ x_k' \cdot w_k',\ -B \} \right) + NB}{NC} } \]
+#+END_SRC

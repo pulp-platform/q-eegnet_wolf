@@ -5,10 +5,12 @@ format
 
 __author__ = "Tibor Schneider"
 __email__ = "sctibor@student.ethz.ch"
-__version__ = "0.0.1"
-__date__ = "2020/01/19"
+__version__ = "0.1.0"
+__date__ = "2020/01/23"
 
 import numpy as np
+
+import functional as F
 
 def inq_conv2d(net, layer_name, num_levels=255, store_reversed=False):
     """
@@ -33,7 +35,7 @@ def inq_conv2d(net, layer_name, num_levels=255, store_reversed=False):
         weights = np.flip(weights, (-2, -1))
 
     # quantize the weights
-    weights = quantize_to_int(weights, scale_factor, num_levels)
+    weights = F.quantize_to_int(weights, scale_factor, num_levels)
     return weights, scale_factor
 
 
@@ -56,19 +58,23 @@ def inq_linear(net, layer_name, num_levels=255):
     bias = net["{}.bias".format(layer_name)]
     scale_factor = net["{}.sParam".format(layer_name)][0]
 
-    weights = quantize_to_int(weights, scale_factor, num_levels)
-    bias = quantize_to_int(bias, scale_factor, num_levels)
+    weights = F.quantize_to_int(weights, scale_factor, num_levels)
+    bias = F.quantize_to_int(bias, scale_factor, num_levels)
 
     return weights, bias, scale_factor
 
 
-def batch_norm(net, layer_name):
+def batch_norm(net, layer_name, epsilon=0.001):
     """
     Converts a batch_norm layer into a scale factor and an offset
+    https://pytorch.org/docs/stable/nn.html#batchnorm2d
+    
+    y = x * scale + offset
 
     Parameters
     - net: dict, contains all network parameters
     - layer_name: str, name of the layer
+    - epsilon: numerical stability (from torch)
 
     Returns: scale, offset
      - scale: np.array of size [num_channels]
@@ -80,8 +86,8 @@ def batch_norm(net, layer_name):
     gamma = net["{}.weight".format(layer_name)]
     beta = net["{}.bias".format(layer_name)]
 
-    scale = gamma / np.sqrt(var)
-    offset = beta - mean / np.sqrt(var) * gamma
+    scale = gamma / np.sqrt(var + epsilon)
+    offset = beta - mean * gamma / np.sqrt(var + epsilon)
 
     return scale, offset
 
@@ -103,71 +109,18 @@ def ste_quant(net, layer_name):
         return net["{}.quant.absMaxValue".format(layer_name)][0]
 
 
-def quantize(x, scale_factor, num_levels=255):
-    """
-    Quantizes the input linearly (without offset) with the given number of levels.
-    The quantization levels will be: 
-        np.linspace(-scale_factor, scale_facotr, num_levels)
-    The output will contain only quantized values (not the integer representation)
-
-    Parameters:
-    - x: np.array(dtype=float), original vector
-    - scale_factor: float, the output will be quantized to range [-s, s]
-    - num_levels: int, number of quantization levels
-
-    Returns: np.array(dtype=float), where all values are within the quantized grid
-    """
-    x = x / scale_factor    # [-1, 1]
-    x = np.clip(x, -1, 1)   # [-1, 1]
-    x = (x + 1) / 2         # [0, 1]
-    x = x * (num_levels-1)  # [0, n]
-    x = x.round()           # [0, n]
-    x = x / (nnum_levels-1) # [0, 1]
-    x = 2*x - 1             # [-1, 1]
-    x = x * scale_factor    # [-s, s]
-    return x
-
-
-def quantize_to_int(x, scale_factor, num_levels=255):
-    """
-    Quantizes the input linearly (without offset) with the given number of levels.
-    The quantization levels will be: 
-        np.linspace(-scale_factor, scale_facotr, num_levels)
-    The output values will be one of:
-        [-(num_levels-1)/2, ..., -1, 0, 1, ..., (num_levels-1)/2]
-    As an example, num_levels = 255, the output range will be int8_t without -128
-        [-127, -126, ..., -1, 0, 1, ..., 126, 127]
-
-    Parameters:
-    - x: np.array(dtype=float), original vector
-    - scale_factor: float, the output will be quantized to range [-s, s]
-    - num_levels: int, number of quantization levels, must be odd
-
-    Returns: np.array(dtype=int), where all values will be in the integer representation
-    """
-
-    # num_levels must be odd!
-    assert num_levels % 2
-    
-    x = x / scale_factor     # Range: [-1, 1]
-    x = np.clip(x, -1, 1)
-    x = x * (num_levels-1)/2 # Range: [-(num_levels-1)/2, (num_levels-1)/2]
-    x = x.round()
-    x = x.astype(np.int)
-    return x
-
-
-def div_factor(input_scale, weight_scale, output_scale, num_levels=255):
+def div_factor(input_scale, weight_scale, output_scale, num_levels=255, pool=1):
     """
     Returns the division factor to rescale the output of a layer.
+    If pooling is used (pool > 1), then the factor must be applied after summing up the values
     Notation: x: real value, x': quantized integer value, s_x, scale, R_x: range
 
         x' = x/s_x * R_x; w' = w/s_w * R_w; y' = y/s_y * R_y
         y = x * w
 
-              x' * w'
-        y' = ---------
-              factor
+              x' * w' + bias
+        y' = ----------------
+                  factor
 
                   s_y * R_x * R_w
         factor = -----------------
@@ -178,17 +131,22 @@ def div_factor(input_scale, weight_scale, output_scale, num_levels=255):
     - weight_scale: float
     - output_scale: float
     - num_levels: int, number of levels for all input, weight and scale
+    - pool: int, number of samples avgPool'ed together. Multiplies factor by pool, such that factor
+            can be applied after doing sumPool.
 
-    Returns: int, scale factor
+    Returns: scale factor: int
     """
-    factor = output_scale * num_levels / (input_scale * weight_scale)
+    val_range = (num_levels-1)/2
+    factor = output_scale * val_range / (input_scale * weight_scale)
+    factor *= pool
     return int(round(factor))
 
 
 def div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset,
-                          num_levels=255):
+                          num_levels=255, pool=1):
     """
     Returns the division factor to rescale the output of a layer.
+    If pooling is used (pool > 1), then the factor and bias must be applied after summing up all values.
     Notation: x: real value, x': quantized integer value, s_x, scale, R_x: range
 
         x' = x/s_x * R_x; w' = w/s_w * R_w; y' = y/s_y * R_y
@@ -209,13 +167,18 @@ def div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_
     - bn_scale: np.array
     - bn_offset: np.array
     - num_levels: int, number of levels for all input, weight and scale
+    - pool: int, number of samples avgPool'ed together. Multiplies factor by pool, such that factor
+            can be applied after doing sumPool.
 
     Returns: 
     - factor: np.array(dtype=int)
     - bias: np.array(dtype=int)
     """
-    factor = output_scale * num_levels / (bn_scale * input_scale * weight_scale)
-    bias = bn_offset * num_levels * num_levels / (bn_scale * input_scale * weight_scale)
+    val_range = (num_levels-1)/2
+    factor = output_scale * val_range / (bn_scale * input_scale * weight_scale)
+    bias = bn_offset * val_range * val_range / (bn_scale * input_scale * weight_scale)
+    factor *= pool
+    bias *= pool
     factor = factor.round().astype(np.int)
     bias = bias.round().astype(np.int)
     return factor, bias
