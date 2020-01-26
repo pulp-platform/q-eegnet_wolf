@@ -1,4 +1,7 @@
-* TODO Implement pooling before scaling
+* DONE Implement pooling before scaling
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2020-01-23 Thu 17:05]
+:END:
 - Requires different scale function: [[../python_utils/convert_torch_format.py::def%20div_factor_batch_norm(input_scale,%20weight_scale,%20output_scale,%20bn_scale,%20bn_offset,][convert_torch_format.py]]
 * DONE When scaling for batch norm, first add bias, and then divide by factor
 - Requires different scale function: [[../python_utils/convert_torch_format.py::def%20div_factor_batch_norm(input_scale,%20weight_scale,%20output_scale,%20bn_scale,%20bn_offset,][convert_torch_format.py]]
@@ -9,4 +12,7 @@
 * TODO Pooling layer will cut off the remaining elements, which do not fit into a full kernel (at the end)
 - Those values thus do not need to be computed
 - Also, for implementation, we can to this pooling in higher precision, and include the factor in the scaling
-* TODO add round constant to offset
+* DONE add round constant to offset
+:LOGBOOK:
+- State "DONE"       from "TODO"       [2020-01-23 Thu 17:05]
+:END:

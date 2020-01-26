@@ -8,6 +8,7 @@ cd data
 
 # generate net header file
 python3 gen_net_header.py
+python3 gen_input_header.py
 
 # leave data directory
 cd ..

@@ -4,11 +4,12 @@ Class to geerate C Header Files
 
 __author__ = "Tibor Schneider"
 __email__ = "sctibor@student.ethz.ch"
-__version__ = "0.1.0"
-__date__ = "2020/01/19"
+__version__ = "0.1.1"
+__date__ = "2020/01/28"
 
 import re
 from textwrap import wrap
+import numpy as np
 
 MAX_WIDTH = 100
 TAB = "    "
@@ -31,7 +32,7 @@ class HeaderFile():
         ret = ""
         ret += "#ifndef {}\n".format(self.define_guard)
         ret += "#define {}\n\n".format(self.define_guard)
-        ret += "#include \"stdint.h\"\n\n"
+        ret += "#include \"rt/rt_api.h\"\n\n"
 
         for element in self.elements:
             ret += str(element)
@@ -139,3 +140,39 @@ class HeaderComment(HeaderEntry):
             ret += "\n"
         return ret
 
+
+def align_array(x, n=4, fill=0):
+    """
+    Aligns the array to n elements (i.e. Bytes) by inserting fill bytes
+
+    Parameters:
+    - x: np.array(shape: [..., D])
+    - n: number of elements to be aligned with
+    - fill: value of the added elements
+
+    Return: np.array(shape: [..., D']), where D' = ceil(D / n) * n
+    """
+
+    new_shape = (*x.shape[:-1], align_array_size(x.shape[-1]))
+    y = np.zeros(new_shape, dtype=x.dtype)
+
+    original_slice = tuple(slice(0, d) for d in x.shape)
+    fill_slice = (*tuple(slice(0, d) for d in x.shape[:-1]), slice(x.shape[-1], y.shape[-1]))
+
+    y[original_slice] = x
+    y[fill_slice] = fill
+
+    return y
+
+
+def align_array_size(D, n=4):
+    """
+    Computes the required dimension D' such that D' is aligned and D <= D'
+
+    Parameters:
+    - D: Dimension to be aligned
+    - n: number of elements to be aligned with
+
+    Return: D'
+    """
+    return int(np.ceil(D / n) * n)

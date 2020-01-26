@@ -31,7 +31,7 @@ def batch_norm(x, scale, bias):
     return y
 
 
-def apply_factor_offset(x, factor, offset=None):
+def apply_factor_offset(x, factor, offset=None, clip_balanced=True, round=True):
     """
     Scales x according to the factor and offset.
     Factor and Offset should be obtained from convert.div_factor or convert.div_factor_batch_norm
@@ -47,6 +47,8 @@ def apply_factor_offset(x, factor, offset=None):
         factor = np.ones((1, ), dtype=type(factor)) * factor
     if offset is None:
         offset = np.zeros(factor.shape, dtype=int)
+    if isinstance(offset, int):
+        offset = np.ones(factor.shape, dtype=int) * offset
 
     assert offset.shape == factor.shape
     assert len(factor.shape) == 1
@@ -54,11 +56,23 @@ def apply_factor_offset(x, factor, offset=None):
     y = np.zeros(x.shape, dtype=x.dtype)
 
     if factor.shape[0] == 1:
-        y = (x + offset + factor // 2) // factor
+        if round:
+            y = (x + offset + factor // 2) // factor
+        else:
+            y = ((x + offset) / factor)
+            y = y.astype(int)
     else:
         for k in range(factor.shape[0]):
-            y[k] = (x[k] + offset[k] + (factor[k] // 2)) // factor[k]
-    return np.clip(y, -127, 127)
+            if round:
+                y[k] = (x[k] + offset[k] + (factor[k] // 2)) // factor[k]
+            else:
+                y[k] = ((x[k] + offset[k]) / factor[k]).astype(int)
+                y[k] = y[k].astype(int)
+
+    if clip_balanced:
+        return np.clip(y, -127, 127)
+    else:
+        return np.clip(y, -128, 127)
 
 
 def relu(x, threshold=0):

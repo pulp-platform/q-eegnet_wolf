@@ -5,10 +5,15 @@ PULP_APP_FC_SRCS = \
 
 PULP_APP_CL_SRCS = \
     src/cl/cluster.c \
-    src/cl/func/dot_prod.c \
-    src/cl/func/kernels/dot_prod_i8v.c
+	src/cl/net/layer1.c \
+	src/cl/func/conv.c \
+	src/cl/func/transform.c
 
-PULP_CFLAGS = -O3 -g
+PULP_CFLAGS = -O3 -g -DROUND
+
+# use parallel processing
+#PULP_CFLAGS += "-DPARALLEL"
+
 PULP_LDFLAGS += -lplpdsp
 
 include $(PULP_SDK_HOME)/install/rules/pulp_rt.mk
