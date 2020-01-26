@@ -14,6 +14,8 @@ NET_FILENAME = "../../../data/net.npz"
 DATA_FILENAME = "../../../data/verification.npz"
 CONFIG_FILENAME = "../../../data/config.json"
 
+ROUND = True
+
 def test():
     """
     Execute the tests
@@ -22,7 +24,7 @@ def test():
     logger = TestLogger(TESTNAME)
     
     # load net and the data
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME)
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, round=ROUND)
     data = dict(np.load(DATA_FILENAME))
     net = dict(np.load(NET_FILENAME))
 

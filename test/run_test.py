@@ -23,7 +23,6 @@ root_folder = "."
 if len(sys.argv) > 1:
     root_folder = sys.argv[1]
 
-
 # search recursively all files
 for root, _, files in os.walk(root_folder):
     for filename in files:
