@@ -66,7 +66,7 @@ def apply_factor_offset(x, factor, offset=None, clip_balanced=True, round=True):
             if round:
                 y[k] = (x[k] + offset[k] + (factor[k] // 2)) // factor[k]
             else:
-                y[k] = ((x[k] + offset[k]) / factor[k]).astype(int)
+                y[k] = ((x[k] + offset[k]) / factor[k])
                 y[k] = y[k].astype(int)
 
     if clip_balanced:

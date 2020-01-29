@@ -38,7 +38,7 @@ void func_transform_32to8(const int32_t* p_in,
 #ifdef ROUND
     uint32_t sa, sb, sc, sd;                          // sign bit of a, b, c and d
     int32_t offset = div_factor / 2;                  // offset is added every time
-    int32_t neg_offset = -((div_factor / 2) * 2) + 1; // neg offset is only added when the number if negative
+    int32_t neg_offset = 1 - ((div_factor / 2) * 2);  // neg offset is only added when the number if negative
 #endif //ROUND
 
     unsigned int num_blk = len / 4;
