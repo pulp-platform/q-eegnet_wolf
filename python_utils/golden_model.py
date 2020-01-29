@@ -19,7 +19,7 @@ class GoldenModel:
     """
     Golden EEGNet Model
     """
-    def __init__(self, config_file, net_file, round=True):
+    def __init__(self, config_file, net_file, round=True, clip_balanced=True):
         """
         Initialize the model based on the config file and the npz file containing all weights
 
@@ -57,11 +57,11 @@ class GoldenModel:
 
         # load individual layers
         self.layers = [
-            Layer1(net, **net_params, round=round),
-            Layer2(net, **net_params, round=round),
-            Layer3(net, **net_params, round=round),
-            Layer4(net, **net_params, round=round),
-            Layer5(net, **net_params, round=round)
+            Layer1(net, **net_params, round=round, clip_balanced=clip_balanced),
+            Layer2(net, **net_params, round=round, clip_balanced=clip_balanced),
+            Layer3(net, **net_params, round=round, clip_balanced=clip_balanced),
+            Layer4(net, **net_params, round=round, clip_balanced=clip_balanced),
+            Layer5(net, **net_params, round=round, clip_balanced=clip_balanced)
         ]
 
         self.input_scale = self.layers[0].input_scale
@@ -130,7 +130,7 @@ class Layer1(Layer):
     """
     Convolution(time) + BN
     """
-    def __init__(self, net, C, T, F1, round=True, **params):
+    def __init__(self, net, C, T, F1, round=True, clip_balanced=True, **params):
         self.name = "Layer 1: Convolution in Time + Batch Norm"
         self.C = C
         self.T = T
@@ -138,6 +138,7 @@ class Layer1(Layer):
         self.input_shape = ((C, T))
         self.output_shape = ((F1, C, T))
         self.round = round
+        self.clip_balanced = clip_balanced
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "conv1")
@@ -167,7 +168,8 @@ class Layer1(Layer):
     def __call__(self, x):
         assert x.shape == self.input_shape, "shape was {}".format(x.shape)
         y = F.conv_time(x, self.weights)
-        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round)
+        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round,
+                                  clip_balanced=self.clip_balanced)
         return y
 
 
@@ -175,7 +177,7 @@ class Layer2(Layer):
     """
     Convolution(channels) + BN + ReLU + Pool
     """
-    def __init__(self, net, C, T, F1, F2, round=True, **params):
+    def __init__(self, net, C, T, F1, F2, round=True, clip_balanced=True, **params):
         self.name = "Layer 2: Convolution in Space + Batch Norm + ReLU + Pooling"
         self.C = C
         self.T = T
@@ -184,6 +186,7 @@ class Layer2(Layer):
         self.input_shape = ((F1, C, T))
         self.output_shape = ((F2, T // 8))
         self.round = round
+        self.clip_balanced = clip_balanced
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "conv2")
@@ -217,7 +220,8 @@ class Layer2(Layer):
         y = F.depthwise_conv_space(x, self.weights)
         y = F.relu(y, -(self.bias // 8))
         y = F.pool(y, (1, 8))
-        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round)
+        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round,
+                                  clip_balanced=self.clip_balanced)
 
         return y
 
@@ -226,13 +230,14 @@ class Layer3(Layer):
     """
     Convolution(T)
     """
-    def __init__(self, net, T, F2, round=True, **params):
+    def __init__(self, net, T, F2, round=True, clip_balanced=True, **params):
         self.name = "Layer 3: Convolution in Time"
         self.T = T
         self.F2 = F2
         self.input_shape = ((F2, T // 8))
         self.output_shape = ((F2, T // 8))
         self.round = round
+        self.clip_balanced = clip_balanced
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "sep_conv1")
@@ -253,7 +258,7 @@ class Layer3(Layer):
     def __call__(self, x):
         assert x.shape == self.input_shape, "shape was {}".format(x.shape)
         y = F.depthwise_conv_time(x, self.weights)
-        y = F.apply_factor_offset(y, self.factor, round=self.round)
+        y = F.apply_factor_offset(y, self.factor, round=self.round, clip_balanced=self.clip_balanced)
         return y
 
 
@@ -261,13 +266,14 @@ class Layer4(Layer):
     """
     Convolution(1x1) + BN + ReLU + Pool
     """
-    def __init__(self, net, T, F2, round=True, **params):
+    def __init__(self, net, T, F2, round=True, clip_balanced=True, **params):
         self.name = "Layer 4: Point Convolution + Batch Norm + ReLU + Pooling"
         self.T = T
         self.F2 = F2
         self.input_shape = ((F2, T // 8))
         self.output_shape = ((F2, T // 64))
         self.round = round
+        self.clip_balanced = clip_balanced
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "sep_conv2")
@@ -299,7 +305,8 @@ class Layer4(Layer):
         y = F.pointwise_conv(x, self.weights)
         y = F.relu(y, -(self.bias // 8))
         y = F.pool(y, (1, 8))
-        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round)
+        y = F.apply_factor_offset(y, self.factor, self.bias, round=self.round,
+                                  clip_balanced=self.clip_balanced)
         return y
 
 
@@ -307,7 +314,7 @@ class Layer5(Layer):
     """
     Linear Layer
     """
-    def __init__(self, net, T, F2, N, round=True, **params):
+    def __init__(self, net, T, F2, N, round=True, clip_balanced=True, **params):
         self.name = "Layer 5: Linear Layer"
         self.T = T
         self.F2 = F2
@@ -316,6 +323,7 @@ class Layer5(Layer):
         self.input_shape = ((F2, T // 64))
         self.output_shape = ((N, ))
         self.round = round
+        self.clip_balanced = clip_balanced
 
         # fetch weights
         self.weights, self.bias, self.weight_scale = convert.inq_linear(net, "fc")
@@ -336,5 +344,5 @@ class Layer5(Layer):
         assert x.shape == self.input_shape, "shape was {}".format(x.shape)
         x = x.ravel()
         y = F.linear(x, self.weights, self.bias)
-        y = F.apply_factor_offset(y, self.factor, round=self.round)
+        y = F.apply_factor_offset(y, self.factor, round=self.round, clip_balanced=self.clip_balanced)
         return y

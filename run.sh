@@ -14,4 +14,8 @@ python3 gen_input_header.py
 cd ..
 
 # build and run everything
-make clean all run
+if [ $# -eq 0 ]; then
+    make clean all run
+else
+    make clean all
+fi
