@@ -9,12 +9,16 @@ from test_utils import parse_output, TestLogger
 from header_file import HeaderFile, HeaderConstant, HeaderArray, align_array
 from makefile import Makefile
 from golden_model import GoldenModel
+import functional as F
 
 TESTNAME = "cl::net::layer1"
 RESULT_FILE = "result.out"
 
+INPUT_FILENAME = "../../../../data/input.npz"
 NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
+
+RANDOM_INPUT = False
 
 
 def gen_stimuli(rnd=False):
@@ -22,7 +26,11 @@ def gen_stimuli(rnd=False):
     This function generates the stimuli (input and output) for the test
     """
     model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, round=rnd, clip_balanced=False)
-    x = np.random.randint(-127, 127, (model.C, model.T))
+    if RANDOM_INPUT:
+        x = np.random.randint(-60, 60, (model.C, model.T))
+    else:
+        x = np.load(INPUT_FILENAME)["input"][0, :, :]
+        x = F.quantize_to_int(x, model.input_scale)
     y_exp = model.layers[0](x)
     return x, y_exp
 

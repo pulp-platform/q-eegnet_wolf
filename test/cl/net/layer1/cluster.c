@@ -21,7 +21,7 @@ int do_bench(rt_perf_t* perf, int events) {
 
     rt_perf_stop(perf);
 
-    int success = 0;
+    int num_err = 0;
     int8_t* p_output_tmp;
     const int8_t* p_exp_tmp;
     for (int k = 0; k < NET_F1; k++) {
@@ -30,8 +30,7 @@ int do_bench(rt_perf_t* perf, int events) {
             p_exp_tmp = y_exp_vec + (k * NET_C + ch) * NET_T_ALIGN;
             for (int t = 0; t < NET_T; t++) {
                 if (*(p_output_tmp) != *(p_exp_tmp)) {
-                    printf("Fail at: [%d, %d, %d]: acq=%d exp=%d\n", k, ch, t, *p_output_tmp, *p_exp_tmp);
-                    success = 1;
+                    num_err += 1;
                 }
                 p_output_tmp++;
                 p_exp_tmp++;
@@ -42,7 +41,7 @@ int do_bench(rt_perf_t* perf, int events) {
     // free memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*) p_output, sizeof(int8_t) * NET_F1 * NET_C * NET_T_ALIGN);
 
-    return success;
+    return num_err;
 }
 
 void cluster_entry(void* arg) {
@@ -63,4 +62,5 @@ void cluster_entry(void* arg) {
     }
     printf("## 1: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
     printf("## 1: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
+    printf("## 1: mismatch: %d/%d\n", result, sizeof(int8_t) * NET_F1 * NET_C * NET_T);
 }

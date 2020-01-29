@@ -31,11 +31,11 @@ void func_transform_32to8(const int32_t* p_in,
                           unsigned int stride,
                           int8_t* p_res) {
 
-    int32_t _a, _b, _c, _d;             // temporary values
+    int32_t _a, _b, _c, _d;          // temporary values
     const int32_t* _p_x = p_in;      // pointer to current element in x
 
 #ifdef ROUND
-    uint32_t _sa, _sb, _sc, _sd;                          // sign bit of a, b, c and d
+    uint32_t _sa, _sb, _sc, _sd;                       // sign bit of a, b, c and d
     int32_t _offset = div_factor / 2;                  // offset is added every time
     int32_t _neg_offset = 1 - ((div_factor / 2) * 2);  // neg offset is only added when the number if negative
 #endif //ROUND
