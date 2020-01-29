@@ -62,5 +62,4 @@ void cluster_entry(void* arg) {
     }
     printf("## 1: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
     printf("## 1: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
-    printf("## 1: mismatch: %d/%d\n", result, sizeof(int8_t) * NET_F1 * NET_C * NET_T);
 }

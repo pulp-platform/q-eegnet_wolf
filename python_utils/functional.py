@@ -31,14 +31,16 @@ def batch_norm(x, scale, bias):
     return y
 
 
-def apply_factor_offset(x, factor, offset=None, clip_balanced=True, round=True):
+def apply_factor_offset(x, factor, offset=None, clip_balanced=True):
     """
     Scales x according to the factor and offset.
     Factor and Offset should be obtained from convert.div_factor or convert.div_factor_batch_norm
+    Rounding is always done by flooring towards zero (like c integer division)
 
     Parameters:
     - x: np.array(dtype=int)
     - factor: int
+    - clip_balanced: if False, clip from -128 to 127, if True, clip from -127 to 127
 
     - y: np.array(dtype=int)
     """
@@ -56,23 +58,16 @@ def apply_factor_offset(x, factor, offset=None, clip_balanced=True, round=True):
     y = np.zeros(x.shape, dtype=x.dtype)
 
     if factor.shape[0] == 1:
-        if round:
-            y = (x + offset + factor // 2) // factor
-        else:
-            y = ((x + offset) / factor)
-            y = y.astype(int)
+        y = (x + offset) / factor
     else:
         for k in range(factor.shape[0]):
-            if round:
-                y[k] = (x[k] + offset[k] + (factor[k] // 2)) // factor[k]
-            else:
-                y[k] = ((x[k] + offset[k]) / factor[k])
-                y[k] = y[k].astype(int)
+            y[k] = (x[k] + offset[k]) / factor[k]
+
+    y = y.astype(np.int)
 
     if clip_balanced:
         return np.clip(y, -127, 127)
-    else:
-        return np.clip(y, -128, 127)
+    return np.clip(y, -128, 127)
 
 
 def relu(x, threshold=0):
@@ -132,7 +127,7 @@ def pool(x, shape, reduction="sum"):
             y[k, t] = func(x[k * shape[0]:(k + 1) * shape[0], t * shape[1]:(t + 1) * shape[1]])
 
     if do_round:
-        y = np.round(y).astype(int)
+        y = y.astype(np.int)
 
     return y
 
@@ -301,6 +296,7 @@ def quantize_to_int(x, scale_factor, num_levels=255):
         [-(num_levels-1)/2, ..., -1, 0, 1, ..., (num_levels-1)/2]
     As an example, num_levels = 255, the output range will be int8_t without -128
         [-127, -126, ..., -1, 0, 1, ..., 126, 127]
+    The value will be floored towards zero, just like integer division in C
 
     Parameters:
     - x: np.array(dtype=float), original vector
@@ -316,7 +312,7 @@ def quantize_to_int(x, scale_factor, num_levels=255):
     x = x / scale_factor
     x = np.clip(x, -1, 1)
     x = x * (num_levels - 1) / 2
-    x = x.round()
+    # x = x.round()
     x = x.astype(np.int)
     return x
 

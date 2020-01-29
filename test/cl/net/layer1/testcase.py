@@ -18,15 +18,13 @@ INPUT_FILENAME = "../../../../data/input.npz"
 NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
-RANDOM_INPUT = False
 
-
-def gen_stimuli(rnd=False):
+def gen_stimuli(random_input):
     """
     This function generates the stimuli (input and output) for the test
     """
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, round=rnd, clip_balanced=False)
-    if RANDOM_INPUT:
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False)
+    if random_input:
         x = np.random.randint(-60, 60, (model.C, model.T))
     else:
         x = np.load(INPUT_FILENAME)["input"][0, :, :]
@@ -43,22 +41,20 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for rnd in [False, True]:
+    # generate makefile
+    mkf = Makefile()
+    mkf.add_fc_test_source("test.c")
+    mkf.add_cl_test_source("cluster.c")
+    mkf.add_cl_prog_source("net/layer1.c")
+    mkf.add_cl_prog_source("net/net.c")
+    mkf.add_cl_prog_source("func/conv.c")
+    mkf.add_cl_prog_source("func/transform.c")
+    mkf.write()
 
-        # generate makefile
-        mkf = Makefile()
-        mkf.add_fc_test_source("test.c")
-        mkf.add_cl_test_source("cluster.c")
-        mkf.add_cl_prog_source("net/layer1.c")
-        mkf.add_cl_prog_source("net/net.c")
-        mkf.add_cl_prog_source("func/conv.c")
-        mkf.add_cl_prog_source("func/transform.c")
-        if rnd:
-            mkf.add_define("ROUND")
-        mkf.write()
+    for random_input in [True, False]:
 
         # generate the stimuli
-        x, y_exp = gen_stimuli(rnd)
+        x, y_exp = gen_stimuli(random_input)
         x_align = align_array(x)
         y_exp_align = align_array(y_exp)
 
@@ -75,7 +71,7 @@ def test():
         result = parse_output(RESULT_FILE)
 
         # log the result
-        subcase_name = "round" if rnd else "floor"
+        subcase_name = "random input" if random_input else "actual input"
         logger.show_subcase_result(subcase_name, result)
 
     # return summary

@@ -14,7 +14,8 @@ NET_FILENAME = "../../../data/net.npz"
 DATA_FILENAME = "../../../data/verification.npz"
 CONFIG_FILENAME = "../../../data/config.json"
 
-ROUND = True
+TOLERANCE = 6
+
 
 def test():
     """
@@ -24,7 +25,7 @@ def test():
     logger = TestLogger(TESTNAME)
     
     # load net and the data
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, round=ROUND)
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME)
     data = dict(np.load(DATA_FILENAME))
     net = dict(np.load(NET_FILENAME))
 
@@ -98,7 +99,7 @@ def test_layer(layer, data):
     return _compare_result(y_hat, y)
 
 
-def _compare_result(y_exp, y_hat, test_index=1, tolerance=2, epsilon=1e-4):
+def _compare_result(y_exp, y_hat, test_index=1, tolerance=6, epsilon=1e-4):
     """
     The error is computed in the following way:
     1. Scale the acquired output y_hat back into regular floating point representation

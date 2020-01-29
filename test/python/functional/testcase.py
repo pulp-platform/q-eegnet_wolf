@@ -41,16 +41,34 @@ def test():
 
 
 def test_quantize(net, data, epsilon=EPSILON):
-    x = data["input"][0,:,:]
-    y_exp = data["input_quant"][0,0,:,:]
-    input_scale = convert.ste_quant(net, "quant1")
+    x_list = [data["input"][0, :, :],
+              data["layer1_bn_out"][0, :, :, :],
+              data["layer2_pool_out"][0, :, 0, :],
+              data["layer3_conv_out"][0, :, 0, :],
+              data["layer4_pool_out"][0, :, 0, :]]
+    y_exp_list = [data["input_quant"][0, 0, :, :],
+                  data["layer1_activ"][0, :, :, :],
+                  data["layer2_activ"][0, :, 0, :],
+                  data["layer3_activ"][0, :, 0, :],
+                  data["layer4_activ"][0, :, 0, :]]
+    scale_list = [convert.ste_quant(net, "quant1"),
+                  convert.ste_quant(net, "quant2"),
+                  convert.ste_quant(net, "quant3"),
+                  convert.ste_quant(net, "quant4"),
+                  convert.ste_quant(net, "quant5")]
+    casename_list = ["input", "layer1", "layer2", "layer3", "layer4"]
 
-    y = F.quantize(x, input_scale)
+    ret = {}
+    for casename, x, y_exp, scale in zip(casename_list, x_list, y_exp_list, scale_list):
 
-    l1_error = np.abs(y - y_exp).mean()
-    success = l1_error < epsilon
+        y = F.quantize(x, scale)
 
-    return {"Batch Norm": {"result": success, "l1_error": l1_error}}
+        l1_error = np.abs(y - y_exp).mean()
+        success = l1_error < epsilon
+
+        ret[casename] = {"result": success, "l1_error": l1_error}
+
+    return ret
 
 
 def test_batch_norm(net, data, layer=2, epsilon=EPSILON):
