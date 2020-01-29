@@ -47,7 +47,7 @@ def gen_net_header(net_file, config_file, output_file):
     assert net_params["F2"] == net_params["F1"] * net_params["D"]
 
     # start the header file
-    header = HeaderFile(output_file, "__NET_NET_H__")
+    header = HeaderFile(output_file, "__NET_NET_H__", with_c=True)
 
     # add network dimensions
     header.add(HeaderComment("Network Dimensions", blank_line=False))

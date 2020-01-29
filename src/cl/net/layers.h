@@ -15,10 +15,12 @@
  * 1. Convolution in time, with NET_F1 different filters of length 64, applied on all channels equally.
  * 2. Apply Batch Normalization
  *
+ * @warning p_result must already be allocated on L2!
+ *
  * @param p_data Pointer to the input data, of shape [NET_C, NET_T], aligned to [NET_C, NET_T_ALIGN]
- * @return Pointer to the output data of shape [NET_F1, NET_C, NET_T] aligned to [NET_F1, NET_C, NET_T_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F1, NET_C, NET_T] aligned to [NET_F1, NET_C, NET_T_ALIGN]
  */
-int8_t* net_layer1(int8_t* p_data);
+void net_layer1(const int8_t* p_data, int8_t* p_result);
 
 /**
  * @brief Execute the 2nd layer
@@ -31,10 +33,12 @@ int8_t* net_layer1(int8_t* p_data);
  * 5. Apply ReLU
  * 6. Apply Avg Pooling with kernel (1, 8)
  *
+ * @warning p_result must already be allocated on L2!
+ *
  * @param p_data Pointer to the input data, of shape [NET_F1, NET_C, NET_T], aligned to [NET_F1, NET_C, NET_T_ALIGN]
- * @return Pointer to the output data of shape [NET_F2, NET_T8] aligned to [NET_F2, NET_T8_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F2, NET_T8] aligned to [NET_F2, NET_T8_ALIGN]
  */
-int8_t* net_layer2(int8_t* p_data);
+void net_layer2(const int8_t* p_data, int8_t * p_result);
 
 /**
  * @brief Execute the 3rd layer
@@ -42,10 +46,12 @@ int8_t* net_layer2(int8_t* p_data);
  * This layer does the following operation on the data:
  * 1. Depthwise convolution in time, with 1 filter per NET_F2 of length 16.
  *
+ * @warning p_result must already be allocated on L2!
+ *
  * @param p_data Pointer to the input data, of shape [NET_F2, NET_T8], aligned to [NET_F2, NET_T8_ALIGN]
- * @return Pointer to the output data of shape [NET_F2, NET_T8] aligned to [NET_F2, NET_T8_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F2, NET_T8] aligned to [NET_F2, NET_T8_ALIGN]
  */
-int8_t* net_layer3(int8_t* p_data);
+void net_layer3(const int8_t* p_data, int8_t * p_result);
 
 /**
  * @brief Execute the 4th layer
@@ -56,10 +62,12 @@ int8_t* net_layer3(int8_t* p_data);
  * 3. Apply ReLU
  * 4. Apply average pooling with kernel size (1, 8)
  *
+ * @warning p_result must already be allocated on L2!
+ *
  * @param p_data Pointer to the input data, of shape [NET_F2, NET_T8], aligned to [NET_F2, NET_T8_ALIGN]
- * @return Pointer to the output data of shape [NET_F2, NET_T64] aligned to [NET_F2, NET_T64_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F2, NET_T64] aligned to [NET_F2, NET_T64_ALIGN]
  */
-int8_t* net_layer4(int8_t* p_data);
+void net_layer4(const int8_t* p_data, int8_t * p_result);
 
 /**
  * @brief Execute the 5th layer
@@ -68,8 +76,8 @@ int8_t* net_layer4(int8_t* p_data);
  * 1. Apply linear layer
  *
  * @param p_data Pointer to the input data, of shape [NET_F2, NET_T64], aligned to [NET_F2, NET_T64_ALIGN]
- * @return Pointer to the output data of shape [NET_D]
+ * @param p_result Pointer to the output data of shape [NET_D]
  */
-int8_t* net_layer5(int8_t* p_data);
+void net_layer5(const int8_t* p_data, int8_t * p_result);
 
 #endif//__CL_NET_LAYERS_H__

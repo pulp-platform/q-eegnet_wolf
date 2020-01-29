@@ -7,6 +7,7 @@ __email__ = "sctibor@student.ethz.ch"
 __version__ = "0.1.1"
 __date__ = "2020/01/28"
 
+import os
 import re
 from textwrap import wrap
 import numpy as np
@@ -17,9 +18,14 @@ TAB = "    "
 class HeaderFile():
     """
     Enables comfortable generation of header files
+    if with_c is set, then generate a c file of the same name, but with a .c ending.
     """
-    def __init__(self, filename, define_guard=None):
+    def __init__(self, filename, define_guard=None, with_c=False):
+        assert filename.endswith(".h")
         self.filename = filename
+        self.with_c = with_c
+        if with_c:
+            self.c_filename = self.filename.rstrip("h") + "c"
         self.define_guard = define_guard
         if self.define_guard is None:
             self.define_guard = "__" + re.sub("[./]", "_", filename.upper()) + "__"
@@ -28,28 +34,42 @@ class HeaderFile():
     def add(self, element):
         self.elements.append(element)
 
-    def __str__(self):
+    def header_str(self):
         ret = ""
         ret += "#ifndef {}\n".format(self.define_guard)
         ret += "#define {}\n\n".format(self.define_guard)
         ret += "#include \"rt/rt_api.h\"\n\n"
 
         for element in self.elements:
-            ret += str(element)
+            ret += element.header_str(self.with_c)
 
         ret += "#endif//{}".format(self.define_guard)
         return ret
 
+    def source_str(self):
+        assert self.with_c
+        ret = ""
+        ret += "#include \"{}\"\n\n".format(os.path.split(self.filename)[-1])
+        for element in self.elements:
+            ret += element.source_str()
+        return ret
+
     def write(self):
         with open(self.filename, "w") as _f:
-            _f.write(str(self))
+            _f.write(self.header_str())
+        if self.with_c:
+            with open(self.c_filename, "w") as _f:
+                _f.write(self.source_str())
 
 
 class HeaderEntry():
     def __init__(self):
         pass
 
-    def __str__(self):
+    def header_str(self, with_c=False):
+        return ""
+
+    def source_str(self):
         return ""
 
 
@@ -59,11 +79,14 @@ class HeaderConstant(HeaderEntry):
         self.value = value
         self.blank_line = blank_line
 
-    def __str__(self):
-        ret = "#define {} {}\n".format(self.name, self.value);
+    def header_str(self, with_c=False):
+        ret = "#define {} {}\n".format(self.name, self.value)
         if self.blank_line:
             ret += "\n"
         return ret
+
+    def source_str(self):
+        return ""
 
 
 class HeaderScalar(HeaderEntry):
@@ -73,8 +96,18 @@ class HeaderScalar(HeaderEntry):
         self.value = value
         self.blank_line = blank_line
 
-    def __str__(self):
-        ret = "{} {} = {};\n".format(self.dtype, self.name, self.value)
+    def header_str(self, with_c=False):
+        if with_c:
+            ret = "extern const {} {};\n".format(self.dtype, self.name, self.value)
+        else:
+            ret = "const {} {} = {};\n".format(self.dtype, self.name, self.value)
+
+        if self.blank_line:
+            ret += "\n"
+        return ret
+
+    def source_str(self):
+        ret = "const {} {} = {};\n".format(self.dtype, self.name, self.value)
         if self.blank_line:
             ret += "\n"
         return ret
@@ -89,10 +122,40 @@ class HeaderArray(HeaderEntry):
         self.locality = locality
         self.blank_line = blank_line
 
-    def __str__(self):
+    def header_str(self, with_c=False):
+        if with_c:
+            ret = "extern {} const {} {}[{}];\n".format(self.locality, self.dtype, self.name, len(self.data))
+        else:
+            # first, try it as a one-liner
+            ret = "{} {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
+                                                  ", ".join([str(item) for item in self.data]))
+            if len(ret) <= MAX_WIDTH:
+                ret += "\n"
+                if self.blank_line:
+                    ret += "\n"
+                return ret
+
+            # It did not work on one line. Make it multiple lines
+            ret = ""
+            ret += "{} {} {}[] = {{\n".format(self.locality, self.dtype, self.name)
+            line = "{}".format(TAB)
+            for item in self.data:
+                item_str = "{}, ".format(item)
+                if len(line) + len(item_str) > MAX_WIDTH:
+                    ret += line.rstrip() + "\n"
+                    line = "{}".format(TAB)
+                line += item_str
+            ret += line.rstrip(", ") + "\n"
+            ret += "};\n"
+
+        if self.blank_line:
+            ret += "\n"
+        return ret
+
+    def source_str(self):
         # first, try it as a one-liner
-        ret = "{} {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
-                                              ", ".join([str(item) for item in self.data]))
+        ret = "{} const {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
+                                                    ", ".join([str(item) for item in self.data]))
         if len(ret) <= MAX_WIDTH:
             ret += "\n"
             if self.blank_line:
@@ -101,7 +164,7 @@ class HeaderArray(HeaderEntry):
 
         # It did not work on one line. Make it multiple lines
         ret = ""
-        ret += "{} {} {}[] = {{\n".format(self.locality, self.dtype, self.name)
+        ret += "{} const {} {}[] = {{\n".format(self.locality, self.dtype, self.name)
         line = "{}".format(TAB)
         for item in self.data:
             item_str = "{}, ".format(item)
@@ -123,7 +186,7 @@ class HeaderComment(HeaderEntry):
         self.mode = mode
         self.blank_line = blank_line
 
-    def __str__(self):
+    def header_str(self, with_c=False):
         if self.mode == "/":
             start = "// "
             mid = "\n// "
@@ -139,6 +202,9 @@ class HeaderComment(HeaderEntry):
         if self.blank_line:
             ret += "\n"
         return ret
+
+    def source_str(self):
+        return self.header_str(True)
 
 
 def align_array(x, n=4, fill=0):

@@ -50,7 +50,7 @@ def gen_input_header(net_file, config_file, input_file, output_file):
     input_quant_align = align_array(input_quant)
 
     # generate the header file
-    header = HeaderFile(output_file, "__INPUT_H__")
+    header = HeaderFile(output_file, "__INPUT_H__", with_c=True)
     header.add(HeaderArray("input_data", "int8_t", input_quant_align.ravel()))
     header.write()
 

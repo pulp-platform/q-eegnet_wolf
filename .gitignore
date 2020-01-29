@@ -5,5 +5,8 @@ auto
 
 data/*.npz
 data/config.json
-src/cl/net.h
-src/input.h
+
+src/cl/net/net.h
+src/cl/net/net.c
+src/cl/input.h
+src/cl/input.c
