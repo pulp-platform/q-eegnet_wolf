@@ -24,12 +24,14 @@ class Makefile:
             # search the project root
             self.project_root = os.getcwd()
             current_files = set(os.listdir(self.project_root))
-            while FILES_IN_ROOT <= current_files:
+            while not FILES_IN_ROOT <= current_files:
                 # go in parent directory
                 self.project_root = os.path.realpath(os.path.join(self.project_root, ".."))
                 current_files = set(os.listdir(self.project_root))
                 assert self.project_root != "/"
-        assert FILES_IN_ROOT <= current_files
+        else:
+            current_files = set(os.listdir(self.project_root))
+            assert FILES_IN_ROOT <= current_files
 
     def add_fc_test_source(self, name):
         """ add test source file, located in current directory """
@@ -83,12 +85,12 @@ class Makefile:
         ret += "PULP_CFLAGS = -O3 -g \n\n"
 
         # add compiler flags
-        ret += "\n".join(["PULP_CFLAGS += \" -D{}\"".format(define) for define in self.defines])
+        ret += "\n".join(["PULP_CFLAGS += -D{}".format(define) for define in self.defines])
         ret += "\n\n"
 
         # include the pulp sdk
         ret += "include $(PULP_SDK_HOME)/install/rules/pulp_rt.mk\n"
-
+        return ret
 
     def write(self):
         """ write Makefile, while deleting the existing one """

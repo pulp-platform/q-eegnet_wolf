@@ -9,6 +9,8 @@ __date__ = "2020/01/23"
 
 import numpy as np
 
+DOT_LENGTH = 32
+
 def parse_output(filename):
     """
     This function parses the output of a test run.
@@ -80,7 +82,7 @@ class TestLogger:
             options_str = ""
             if options:
                 options_str = "[{}]".format(", ".join(options))
-            print("{}{} {}" .format(subcase_name.ljust(20, "."), success_str, options_str))
+            print("{}{} {}" .format(subcase_name.ljust(DOT_LENGTH, "."), success_str, options_str))
 
             # keep track of statistics
             self.num_cases += 1
@@ -103,7 +105,7 @@ class TestLogger:
                 if options:
                     options_str = "[{}]".format(", ".join(options))
                 subcase_str = "{} {}".format(subcase_name, case_id)
-                print("{}{} {}" .format(subcase_str.ljust(20, "."), success_str, options_str))
+                print("{}{} {}" .format(subcase_str.ljust(DOT_LENGTH, "."), success_str, options_str))
 
                 # keep track of statistics
                 self.num_cases += 1

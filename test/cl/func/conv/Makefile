@@ -1,12 +1,8 @@
 PULP_APP = test
 
-SRC_FOLDER = $(EEGNET_WOLF_SRC_PATH)
-
 PULP_APP_CL_SRCS = \
 	cluster.c \
 	../../../../src/cl/func/conv.c \
-	#$(SRC_FOLDER)func/conv.c
-	
 
 PULP_APP_FC_SRCS = test.c
 
