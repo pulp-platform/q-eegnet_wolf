@@ -6,6 +6,9 @@ auto
 data/*.npz
 data/config.json
 
+test_stimuli.h
+result.out
+
 src/cl/net/net.h
 src/cl/net/net.c
 src/cl/input.h
