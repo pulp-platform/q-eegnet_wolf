@@ -126,26 +126,24 @@ class HeaderArray(HeaderEntry):
         if with_c:
             ret = "extern {} const {} {}[{}];\n".format(self.locality, self.dtype, self.name, len(self.data))
         else:
-            # first, try it as a one-liner
-            ret = "{} {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
-                                                  ", ".join([str(item) for item in self.data]))
-            if len(ret) <= MAX_WIDTH:
-                ret += "\n"
-                if self.blank_line:
+            # first, try it as a one-liner (only if the length is smaller than 16)
+            if len(self.data) <= 16:
+                ret = "{} {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
+                                                      ", ".join([str(item) for item in self.data]))
+                if len(ret) <= MAX_WIDTH:
                     ret += "\n"
-                return ret
+                    if self.blank_line:
+                        ret += "\n"
+                    return ret
 
             # It did not work on one line. Make it multiple lines
             ret = ""
             ret += "{} {} {}[] = {{\n".format(self.locality, self.dtype, self.name)
-            line = "{}".format(TAB)
-            for item in self.data:
-                item_str = "{}, ".format(item)
-                if len(line) + len(item_str) > MAX_WIDTH:
-                    ret += line.rstrip() + "\n"
-                    line = "{}".format(TAB)
-                line += item_str
-            ret += line.rstrip(", ") + "\n"
+
+            long_str = ", ".join([str(item) for item in self.data])
+            parts = wrap(long_str, MAX_WIDTH-len(TAB))
+            ret += "{}{}".format(TAB, "\n{}".format(TAB).join(parts))
+
             ret += "};\n"
 
         if self.blank_line:
@@ -154,25 +152,23 @@ class HeaderArray(HeaderEntry):
 
     def source_str(self):
         # first, try it as a one-liner
-        ret = "{} const {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
-                                                    ", ".join([str(item) for item in self.data]))
-        if len(ret) <= MAX_WIDTH:
-            ret += "\n"
-            if self.blank_line:
+        if len(self.data) <= 16:
+            ret = "{} const {} {}[] = {{ {} }};".format(self.locality, self.dtype, self.name,
+                                                        ", ".join([str(item) for item in self.data]))
+            if len(ret) <= MAX_WIDTH:
                 ret += "\n"
-            return ret
+                if self.blank_line:
+                    ret += "\n"
+                return ret
 
         # It did not work on one line. Make it multiple lines
         ret = ""
         ret += "{} const {} {}[] = {{\n".format(self.locality, self.dtype, self.name)
-        line = "{}".format(TAB)
-        for item in self.data:
-            item_str = "{}, ".format(item)
-            if len(line) + len(item_str) > MAX_WIDTH:
-                ret += line.rstrip() + "\n"
-                line = "{}".format(TAB)
-            line += item_str
-        ret += line.rstrip(", ") + "\n"
+
+        long_str = ", ".join([str(item) for item in self.data])
+        parts = wrap(long_str, MAX_WIDTH-len(TAB))
+        ret += "{}{}".format(TAB, "\n{}".format(TAB).join(parts))
+
         ret += "};\n"
         if self.blank_line:
             ret += "\n"
