@@ -17,8 +17,10 @@
  *
  * @warning p_result must already be allocated on L2!
  *
+ * @info The output be allocated to NET_F1 * NET_C_ALIGN * NET_T_ALIGN, because it will be flipped inplace afterwards.
+ *
  * @param p_data Pointer to the input data, of shape [NET_C, NET_T], aligned to [NET_C, NET_T_ALIGN]
- * @param p_result Pointer to the output data of shape [NET_F1, NET_C, NET_T] aligned to [NET_F1, NET_C, NET_T_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F1, NET_C, NET_T] aligned to [NET_F1, NET_C_ALIGN, NET_T_ALIGN].
  */
 void net_layer1(const int8_t* p_data, int8_t* p_result);
 
