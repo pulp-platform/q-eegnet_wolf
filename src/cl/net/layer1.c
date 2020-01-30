@@ -5,6 +5,7 @@
  * @brief This file contains the Implementation for the first layer
  */
 
+//TODO remove
 #include "stdio.h"
 
 #include "rt/rt_api.h"
@@ -28,21 +29,9 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
 
     printf("cl::net::net_layer1()\n");
 
-    const int8_t* _p_current_data = p_data;
-    const int8_t* _p_current_weight = net_l1_weight;
-    int8_t* _p_current_result = p_result;
-
-#ifdef PARALLEL
-#error "Not Implemented"
-#else//PARALLEL
-
-    /*
-     * Compute every Channel for every Filter separately
-     */
-
-#ifdef DMA_WHILE_COMPUTE
-#error "Not Implemented"
-#else //DMA_WHILE_COMPUTE
+    const int8_t* _p_data_iter = p_data;
+    const int8_t* _p_weight_iter = net_l1_weight;
+    int8_t* _p_result_iter = p_result;
 
     /*
      * Just copy the files, compute and copy the files back
@@ -77,26 +66,26 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
         int32_t _convert_offset = net_l1_offset[_k];
 
         // load the weights
-        rt_dma_memcpy((unsigned int)_p_current_weight,
+        rt_dma_memcpy((unsigned int)_p_weight_iter,
                       (unsigned int)_p_weight_loc,
                       sizeof(int8_t) * NET_L1_WEIGHT_LEN,
                       RT_DMA_DIR_EXT2LOC, 0, &_copy);
         // increment the current weight pointer
-        _p_current_weight += NET_L1_WEIGHT_LEN;
+        _p_weight_iter += NET_L1_WEIGHT_LEN;
         rt_dma_wait(&_copy);
 
         // reset the current data pointer back to the first channel
-        _p_current_data = p_data;
+        _p_data_iter = p_data;
 
         // loop over all input channels
         for (int _ch = 0; _ch < NET_C; _ch++) {
 
             // copy the data
-            rt_dma_memcpy((unsigned int)_p_current_data,
+            rt_dma_memcpy((unsigned int)_p_data_iter,
                           (unsigned int)(_p_data_loc + NET_L1_PAD_START),
                           sizeof(int8_t) * NET_T,
                           RT_DMA_DIR_EXT2LOC, 0, &_copy);
-            _p_current_data += NET_T_ALIGN;
+            _p_data_iter += NET_T_ALIGN;
             rt_dma_wait(&_copy);
 
             // convolve the data (always the correct parts)
@@ -110,11 +99,11 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
                                       _p_result_loc);
 
             // copy back the results
-            rt_dma_memcpy((unsigned int)_p_current_result,
+            rt_dma_memcpy((unsigned int)_p_result_iter,
                           (unsigned int)_p_result_loc,
                           sizeof(int8_t) * NET_T_ALIGN,
                           RT_DMA_DIR_LOC2EXT, 0, &_copy);
-            _p_current_result += NET_T_ALIGN;
+            _p_result_iter += NET_T_ALIGN;
             rt_dma_wait(&_copy);
         }
 
@@ -125,10 +114,5 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     rt_free(RT_ALLOC_CL_DATA, (void*)_p_result_loc, sizeof(int8_t) * NET_T_ALIGN * 2);
     rt_free(RT_ALLOC_CL_DATA, (void*)_p_conv_result_loc, sizeof(int32_t) * NET_T);
     rt_free(RT_ALLOC_CL_DATA, (void*)_p_weight_loc, sizeof(int8_t) * NET_L1_WEIGHT_LEN * 2);
-
-
-#endif//DMA_WHILE_COMPUTE
-    
-#endif//PARALLEL
 
 }
