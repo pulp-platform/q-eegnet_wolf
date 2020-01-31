@@ -114,7 +114,7 @@ class HeaderScalar(HeaderEntry):
 
 
 class HeaderArray(HeaderEntry):
-    def __init__(self, name, dtype, data, locality="RT_LOCAL_DATA", blank_line=True, const=True):
+    def __init__(self, name, dtype, data, locality="RT_L2_DATA", blank_line=True, const=True):
         assert locality in ["RT_LOCAL_DATA", "RT_L2_DATA", "RT_CL_DATA", "RT_FC_SHARED_DATA",
                             "RT_FC_GLOBAL_DATA", ""]
         self.name = name
