@@ -99,4 +99,17 @@ void func_flip_2d_axis(const int8_t* p_in,
                        unsigned int inner_len,
                        int8_t* p_res);
 
+/**
+ * @brief computes dot product of the two vectors p_a and p_b
+ *
+ * @param p_a Pointer to first vector on L1 memory, should be aligned
+ * @param p_b Pointer to second vector on L1 memory, should be aligned
+ * @param length Lenght (number of elements) of both vectors
+ * @return dot product
+ */
+int32_t func_dotp(const int8_t* p_a,
+                  const int8_t* p_b,
+                  unsigned int length);
+
+
 #endif//__CL_FUNC_FUNCTIONAL_H__
