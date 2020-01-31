@@ -35,7 +35,7 @@ def test_main(root_folder):
     num_success = 0
 
     # search recursively all files
-    for root, _, files in os.walk(root_folder):
+    for root, _, files in sorted(os.walk(root_folder), key=lambda x: x[0]):
         for filename in files:
             if filename == TEST_FILENAME:
                 # import the file
