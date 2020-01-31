@@ -10,6 +10,7 @@ PULP_APP_CL_SRCS = \
 	src/cl/net/layer2.c \
 	src/cl/net/layer3.c \
 	src/cl/net/layer4.c \
+	src/cl/net/layer5.c \
 	src/cl/net/net.c \
 	src/cl/func/conv.c \
 	src/cl/func/transform.c \

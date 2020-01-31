@@ -39,6 +39,7 @@ def gen_net_header(net_file, config_file, output_file):
     assert net_params["weightInqNumLevels"] == 255
     assert net_params["actSTENumLevels"] == 255
     assert net_params["F2"] % 4 == 0
+    assert net_params["N"] == 4
 
     # prepare params
     if net_params["F2"] is None:
@@ -154,9 +155,17 @@ def gen_net_header(net_file, config_file, output_file):
 
     # layer5
     input_scale = convert.ste_quant(net, "quant5")
+    output_scale = convert.ste_quant(net, "quant6")
     weight, bias, weight_scale = convert.inq_linear(net, "fc")
     weight = weight.reshape(net_params["N"], net_params["F2"] * (net_params["T"] // 64))
-    weight = align_array(weight)
+    #weight = align_array(weight)
+    # we want to align, not for the product F2*T//64, but for T//64 itself.
+    t64 = net_params["T"] // 64
+    t64_align = align_array_size(t64)
+    weight_align = np.zeros((net_params["N"], net_params["F2"] * t64_align), dtype=int)
+    for i in range(net_params["F2"]):
+        weight_align[:, i * t64_align: i * t64_align + t64] = weight[:, i * t64: (i + 1) * t64]
+    factor = convert.div_factor(input_scale, weight_scale, output_scale)
 
     header.add(HeaderComment("Layer 5\n"
                              "=======\n"
@@ -166,9 +175,10 @@ def gen_net_header(net_file, config_file, output_file):
                              "Bias:   [N]\n"
                              "Output: [N]",
                              mode="/*"))
+    header.add(HeaderConstant("NET_L5_FACTOR", factor))
     header.add(HeaderArray("net_l5_bias", "int8_t", bias.ravel()))
-    header.add(HeaderConstant("NET_L5_WEIGHT_LEN", weight.shape[-1]))
-    header.add(HeaderArray("net_l5_weight", "int8_t", weight.ravel()))
+    header.add(HeaderConstant("NET_L5_WEIGHT_LEN", weight_align.shape[-1]))
+    header.add(HeaderArray("net_l5_weight", "int8_t", weight_align.ravel()))
 
     # store the header file
     header.write()

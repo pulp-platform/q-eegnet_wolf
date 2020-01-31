@@ -98,7 +98,7 @@ void net_layer4(const int8_t* p_data, int8_t * p_result);
  * 1. Apply linear layer
  *
  * @param p_data Pointer to the input data, of shape [NET_F2, NET_T64], aligned to [NET_F2, NET_T64_ALIGN]
- * @param p_result Pointer to the output data of shape [NET_D]
+ * @param p_result Pointer to the output data of shape [NET_N]
  */
 void net_layer5(const int8_t* p_data, int8_t * p_result);
 
