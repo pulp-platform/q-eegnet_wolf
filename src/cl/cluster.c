@@ -17,12 +17,26 @@ void cluster_entry(void *arg)
      */
 
     // allocate data for result
-    int8_t * p_l1_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F1 * NET_C * NET_T_ALIGN);
-
+    int8_t * p_l1_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F1 * NET_C_ALIGN * NET_T_ALIGN);
 
     // compute layer 1
     net_layer1(input_data, p_l1_output);
 
-    // allocate data for result
-    rt_free(RT_ALLOC_L2_CL_DATA, (void*) p_l1_output, sizeof(int8_t) * NET_F1 * NET_C * NET_T_ALIGN);
+    // flip the dimension
+    net_layer1_flip_inplace(p_l1_output);
+
+    /*
+     * Layer 2
+     */
+
+    // allocate memory
+    int8_t * p_l2_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
+
+    net_layer2(p_l1_output, p_l2_output);
+
+    // free l1 memory
+    rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l1_output, sizeof(int8_t) * NET_F1 * NET_C * NET_T_ALIGN);
+
+    // free l2 memory
+    rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l2_output, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 }

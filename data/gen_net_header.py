@@ -90,10 +90,10 @@ def gen_net_header(net_file, config_file, output_file):
 
     # layer2
     input_scale = convert.ste_quant(net, "quant2")
-    weight, weight_scale = convert.inq_conv2d(net, "conv2")
+    weight, weight_scale = convert.inq_conv2d(net, "conv2", store_reversed=True)
     bn_scale, bn_offset = convert.batch_norm(net, "batch_norm2")
     output_scale = convert.ste_quant(net, "quant3")
-    factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset)
+    factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset, pool=8)
     weight = weight.reshape(net_params["F2"], net_params["C"])
     weight = align_array(weight)
 
@@ -132,7 +132,7 @@ def gen_net_header(net_file, config_file, output_file):
     weight, weight_scale = convert.inq_conv2d(net, "sep_conv2")
     output_scale = convert.ste_quant(net, "quant5")
     bn_scale, bn_offset = convert.batch_norm(net, "batch_norm3")
-    factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset)
+    factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset, pool=8)
     weight = weight.reshape(net_params["F2"], net_params["F2"])
 
     header.add(HeaderComment("Layer 4\n"

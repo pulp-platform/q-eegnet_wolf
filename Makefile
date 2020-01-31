@@ -7,9 +7,12 @@ PULP_APP_CL_SRCS = \
     src/cl/cluster.c \
 	src/cl/input.c \
 	src/cl/net/layer1.c \
+	src/cl/net/layer2.c \
 	src/cl/net/net.c \
 	src/cl/func/conv.c \
-	src/cl/func/transform.c
+	src/cl/func/transform.c \
+	src/cl/func/flip.c \
+	src/cl/func/dotp.c \
 
 PULP_CFLAGS = -O3 -g -DROUND
 
