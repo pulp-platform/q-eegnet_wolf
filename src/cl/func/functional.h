@@ -98,7 +98,5 @@ void func_flip_2d_axis(const int8_t* p_in,
                        unsigned int outer_len,
                        unsigned int inner_len,
                        int8_t* p_res);
-                       
-
 
 #endif//__CL_FUNC_FUNCTIONAL_H__
