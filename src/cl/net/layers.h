@@ -66,6 +66,16 @@ void net_layer2(const int8_t* p_data, int8_t * p_result);
 void net_layer3(const int8_t* p_data, int8_t * p_result);
 
 /**
+ * @brief Flip the F2 and T//8 dimension inplace after layer 3, before layer 4
+ * p_data will be of shape [NET_T8_ALIGN, NET_F2] afterwards.
+ *
+ * @warning p_result must already be allocated on L2!
+ *
+ * @param p_data Pointer to the input data, of shape [NET_F2, NET_T8_ALIGN], aligned to [NET_T8_ALIGN, NET_F2]
+ */
+void net_layer3_flip_inplace(int8_t* p_data);
+
+/**
  * @brief Execute the 4th layer
  * 
  * This layer does the following operation on the data:

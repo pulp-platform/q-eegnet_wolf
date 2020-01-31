@@ -48,6 +48,9 @@ void cluster_entry(void *arg)
     // compute layer 3
     net_layer3(p_l2_output, p_l3_output);
 
+    // flip the dimension
+    net_layer3_flip_inplace(p_l3_output);
+
     // free l2 memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l2_output, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 

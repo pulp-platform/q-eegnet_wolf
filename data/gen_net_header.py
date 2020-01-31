@@ -38,6 +38,7 @@ def gen_net_header(net_file, config_file, output_file):
     # only allow nets with 255 levels
     assert net_params["weightInqNumLevels"] == 255
     assert net_params["actSTENumLevels"] == 255
+    assert net_params["F2"] % 4 == 0
 
     # prepare params
     if net_params["F2"] is None:
