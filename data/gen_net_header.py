@@ -123,7 +123,11 @@ def gen_net_header(net_file, config_file, output_file):
                              "Weight: [F2, 16]\n"
                              "Output: [F2, T // 8]",
                              mode="/*", blank_line=False))
-    header.add(HeaderScalar("net_l3_factor", "int32_t", factor))
+    header.add(HeaderConstant("NET_L3_PAD_START", 7))
+    header.add(HeaderConstant("NET_L3_PAD_END", 8))
+    header.add(HeaderConstant("NET_L3_PAD_INPUT_LEN", net_params["T"] // 8 + 7 + 8))
+    header.add(HeaderConstant("NET_L3_PAD_INPUT_LEN_ALIGN", align_array_size(net_params["T"] // 8 + 7 + 8)))
+    header.add(HeaderConstant("NET_L3_FACTOR", factor))
     header.add(HeaderConstant("NET_L3_WEIGHT_LEN", weight.shape[-1]))
     header.add(HeaderArray("net_l3_weight", "int8_t", weight.ravel()))
 

@@ -67,8 +67,6 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
                       (unsigned int)_p_weight_loc,
                       sizeof(int8_t) * NET_L1_WEIGHT_LEN,
                       RT_DMA_DIR_EXT2LOC, 0, &_copy);
-        // increment the current weight pointer
-        _p_weight_iter += NET_L1_WEIGHT_LEN;
         rt_dma_wait(&_copy);
 
         // reset the current data pointer back to the first channel
@@ -85,7 +83,6 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
                           (unsigned int)(_p_data_loc + NET_L1_PAD_START),
                           sizeof(int8_t) * NET_T,
                           RT_DMA_DIR_EXT2LOC, 0, &_copy);
-            _p_data_iter += NET_T_ALIGN;
             rt_dma_wait(&_copy);
 
             // convolve the data (always the correct parts)
@@ -103,9 +100,15 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
                           (unsigned int)_p_result_loc,
                           sizeof(int8_t) * NET_T_ALIGN,
                           RT_DMA_DIR_LOC2EXT, 0, &_copy);
-            _p_result_iter += NET_T_ALIGN;
             rt_dma_wait(&_copy);
+
+            // increment the data and results iterator
+            _p_data_iter += NET_T_ALIGN;
+            _p_result_iter += NET_T_ALIGN;
         }
+
+        // increment the current weight pointer
+        _p_weight_iter += NET_L1_WEIGHT_LEN;
 
     }
 

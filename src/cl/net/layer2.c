@@ -1,8 +1,8 @@
 /**
  * @file layer2.c
  * @author Tibor Schneider
- * @date 2020/01/30
- * @brief This file contains the Implementation for the first layer
+ * @date 2020/01/31
+ * @brief This file contains the Implementation for the second layer
  */
 
 #include "rt/rt_api.h"

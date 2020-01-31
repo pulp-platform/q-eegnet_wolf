@@ -212,7 +212,7 @@ def depthwise_conv_time(x, w):
     y = np.zeros(x.shape, dtype=x.dtype)
     x = np.pad(x, ((0, 0), padding))
     for k in range(x.shape[0]):
-            y[k] = np.convolve(x[k], w[k], mode="valid")
+        y[k] = np.convolve(x[k], w[k], mode="valid")
 
     return y
 

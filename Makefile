@@ -8,6 +8,7 @@ PULP_APP_CL_SRCS = \
 	src/cl/input.c \
 	src/cl/net/layer1.c \
 	src/cl/net/layer2.c \
+	src/cl/net/layer3.c \
 	src/cl/net/net.c \
 	src/cl/func/conv.c \
 	src/cl/func/transform.c \
