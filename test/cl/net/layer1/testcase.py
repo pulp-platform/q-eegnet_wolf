@@ -51,28 +51,28 @@ def test():
     mkf.add_cl_prog_source("func/transform.c")
     mkf.write()
 
-    for random_input in [True, False]:
+    random_input = False
 
-        # generate the stimuli
-        x, y_exp = gen_stimuli(random_input)
-        x_align = align_array(x)
-        y_exp_align = align_array(y_exp)
+    # generate the stimuli
+    x, y_exp = gen_stimuli(random_input)
+    x_align = align_array(x)
+    y_exp_align = align_array(y_exp)
 
-        # prepare header file
-        header = HeaderFile("test_stimuli.h")
-        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-        header.write()
+    # prepare header file
+    header = HeaderFile("test_stimuli.h")
+    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+    header.write()
 
-        # compile and run
-        os.system("make clean all run > {}".format(RESULT_FILE))
+    # compile and run
+    os.system("make clean all run > {}".format(RESULT_FILE))
 
-        # parse output
-        result = parse_output(RESULT_FILE)
+    # parse output
+    result = parse_output(RESULT_FILE)
 
-        # log the result
-        subcase_name = "random input" if random_input else "actual input"
-        logger.show_subcase_result(subcase_name, result)
+    # log the result
+    subcase_name = "random input" if random_input else "actual input"
+    logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()
