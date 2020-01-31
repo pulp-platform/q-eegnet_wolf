@@ -54,6 +54,19 @@ void cluster_entry(void *arg)
     // free l2 memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l2_output, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 
+    /*
+     * Layer 4
+     */
+
+    // allocate memory
+    int8_t * p_l4_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
+
+    // compute layer 3
+    net_layer4(p_l3_output, p_l4_output);
+
     // free l3 memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l3_output, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
+
+    // free l4 memory
+    rt_free(RT_ALLOC_L2_CL_DATA, (void*)p_l4_output, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
 }

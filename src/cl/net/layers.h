@@ -35,7 +35,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result);
 void net_layer1_flip_inplace(int8_t* p_data);
 
 /**
- * @brief Execute the 2nd layer
+ * @brief Execute the 2nd layer (flipped input dimensions)
  * 
  * This layer does the following operation on the data:
  * 1. Transpose the input into the shape [NET_F1, NET_T, NET_C_ALIGN]
@@ -76,17 +76,17 @@ void net_layer3(const int8_t* p_data, int8_t * p_result);
 void net_layer3_flip_inplace(int8_t* p_data);
 
 /**
- * @brief Execute the 4th layer
+ * @brief Execute the 4th layer (flipped input dimensions)
  * 
  * This layer does the following operation on the data:
- * 1. Pointwise Convolution, with F2 * F2 filters
+ * 1. Pointwise Convolution, with F2 * F2 filters (this is a dot product when the dimensions are flipped)
  * 2. Apply Batch Normalization
  * 3. Apply ReLU
  * 4. Apply average pooling with kernel size (1, 8)
  *
  * @warning p_result must already be allocated on L2!
  *
- * @param p_data Pointer to the input data, of shape [NET_F2, NET_T8], aligned to [NET_F2, NET_T8_ALIGN]
+ * @param p_data Pointer to the input data, of shape [NET_T8, NET_F2]
  * @param p_result Pointer to the output data of shape [NET_F2, NET_T64] aligned to [NET_F2, NET_T64_ALIGN]
  */
 void net_layer4(const int8_t* p_data, int8_t * p_result);
