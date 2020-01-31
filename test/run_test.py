@@ -13,6 +13,10 @@ import importlib.util
 
 TEST_FILENAME = "testcase.py"
 
+RED_COLOR = "\033[1;31m"
+GREEN_COLOR = "\033[1;32m"
+RESET_COLOR = "\033[0;0m"
+
 
 def test_main(root_folder):
     """ main function """
@@ -52,8 +56,13 @@ def test_main(root_folder):
                 os.chdir(old_cwd)
 
     # print a summary
+    all_ok = num_total == num_success
     print("\n********************")
-    print("Summary: {}".format("OK" if num_total == num_success else "FAIL"))
+    if all_ok:
+        color = GREEN_COLOR
+    else:
+        color = RED_COLOR
+    print("{}Summary: {}{}".format(color, ("OK" if all_ok else "FAIL"), RESET_COLOR))
     print("Number of tests: {}".format(num_total))
     print("Failed tests:    {}".format(num_total - num_success))
 

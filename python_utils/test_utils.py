@@ -11,6 +11,13 @@ import numpy as np
 
 DOT_LENGTH = 32
 
+RED_COLOR = "\033[1;31m"
+GREEN_COLOR = "\033[1;32m"
+RESET_COLOR = "\033[0;0m"
+
+SUCCESS_STR = "..{}OK{}".format(GREEN_COLOR, RESET_COLOR)
+FAIL_STR = "{}FAIL{}".format(RED_COLOR, RESET_COLOR)
+
 def parse_output(filename):
     """
     This function parses the output of a test run.
@@ -69,7 +76,7 @@ class TestLogger:
         assert results
         if len(results) == 1:
             result = list(results.values())[0]
-            success_str = "..Ok" if result["result"] else "FAIL"
+            success_str = SUCCESS_STR if result["result"] else FAIL_STR
             options = []
             for k in sorted(result):
                 v = result[k]
@@ -91,7 +98,7 @@ class TestLogger:
         else:
             for case_id in sorted(results):
                 result = results[case_id]
-                success_str = "..Ok" if result["result"] else "FAIL"
+                success_str = SUCCESS_STR if result["result"] else FAIL_STR
                 options = []
                 for k in sorted(result):
                     v = result[k]
