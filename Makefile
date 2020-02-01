@@ -6,6 +6,7 @@ PULP_APP_FC_SRCS = \
 PULP_APP_CL_SRCS = \
     src/cl/cluster.c \
 	src/cl/input.c \
+	src/cl/net/model.c \
 	src/cl/net/layer1.c \
 	src/cl/net/layer2.c \
 	src/cl/net/layer3.c \
