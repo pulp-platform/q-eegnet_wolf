@@ -9,8 +9,6 @@ int do_bench(rt_perf_t* perf, int events) {
 
     // allocate result memory
     int8_t * p_output = rt_alloc(RT_ALLOC_FC_DATA, sizeof(int8_t) * NET_F1 * NET_C_ALIGN * NET_T_ALIGN);
-
-    printf("Compute layer...\n");
     
     //setup performance measurement
     rt_perf_conf(perf, events);
@@ -22,8 +20,6 @@ int do_bench(rt_perf_t* perf, int events) {
     net_layer1(x_vec, p_output);
 
     rt_perf_stop(perf);
-
-    printf("Compare results...\n");
 
     int num_err = 0;
     int8_t* p_output_tmp;

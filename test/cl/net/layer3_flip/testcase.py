@@ -11,7 +11,7 @@ from makefile import Makefile
 from golden_model import GoldenModel
 import functional as F
 
-TESTNAME = "cl::net::layer1_flip_inplace"
+TESTNAME = "cl::net::layer3_flip_inplace"
 RESULT_FILE = "result.out"
 
 INPUT_FILENAME = "../../../../data/input.npz"

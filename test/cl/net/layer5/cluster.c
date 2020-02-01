@@ -9,8 +9,6 @@ int do_bench(rt_perf_t* perf, int events) {
     // allocate result memory
     int8_t * p_output = rt_alloc(RT_ALLOC_FC_DATA, sizeof(int8_t) * NET_N);
 
-    printf("Compute layer...\n");
-    
     //setup performance measurement
     rt_perf_conf(perf, events);
     
@@ -22,13 +20,10 @@ int do_bench(rt_perf_t* perf, int events) {
 
     rt_perf_stop(perf);
 
-    printf("Compare results...\n");
-
     int num_err = 0;
     for (int n = 0; n < NET_N; n++) {
         if (p_output[n] != y_exp_vec[n]) {
             num_err++;
-            printf("Error at: n=%d, acq = %d, exp = %d\n", n, p_output[n], y_exp_vec[n]);
         }
     }
 
@@ -56,5 +51,4 @@ void cluster_entry(void* arg) {
     }
     printf("## 1: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
     printf("## 1: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
-    printf("## 1: diff: %d\n", result);
 }
