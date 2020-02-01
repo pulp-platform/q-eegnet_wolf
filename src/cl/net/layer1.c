@@ -113,10 +113,10 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     }
 
     // free up the memory
-    rt_free(RT_ALLOC_CL_DATA, (void*)_p_data_loc, sizeof(int8_t) * NET_L1_PAD_INPUT_LEN_ALIGN * 2);
-    rt_free(RT_ALLOC_CL_DATA, (void*)_p_result_loc, sizeof(int8_t) * NET_T_ALIGN * 2);
-    rt_free(RT_ALLOC_CL_DATA, (void*)_p_conv_result_loc, sizeof(int32_t) * NET_T);
-    rt_free(RT_ALLOC_CL_DATA, (void*)_p_weight_loc, sizeof(int8_t) * NET_L1_WEIGHT_LEN * 2);
+    rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_L1_PAD_INPUT_LEN_ALIGN);
+    rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_T_ALIGN);
+    rt_free(RT_ALLOC_CL_DATA, _p_conv_result_loc, sizeof(int32_t) * NET_T);
+    rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_L1_WEIGHT_LEN);
 
 }
 
@@ -167,5 +167,9 @@ void net_layer1_flip_inplace(int8_t* p_data) {
 
         _p_data_iter += NET_C_ALIGN * NET_T_ALIGN;
     }
+
+    // allocate memory
+    rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_C * NET_T_ALIGN);
+    rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_T * NET_C_ALIGN);
 
 }
