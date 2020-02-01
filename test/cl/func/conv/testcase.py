@@ -7,6 +7,7 @@ import os
 import numpy as np
 from test_utils import parse_output, TestLogger
 from header_file import HeaderFile, HeaderConstant, HeaderArray
+from makefile import Makefile
 
 TESTNAME = "cl::func::conv"
 RESULT_FILE = "result.out"
@@ -31,27 +32,39 @@ def test():
     logger = TestLogger(TESTNAME)
 
     for size_a, size_b in [(155, 16), (1188, 64), (4096, 128)]:
-        # generate the stimuli
-        vecA, vecB, vecExp = gen_stimuli(size_a, size_b)
+        for conv_version in [0, 1, 2, 3]:
 
-        # prepare header file
-        header = HeaderFile("test_stimuli.h")
-        header.add(HeaderConstant("LENGTH_A", size_a))
-        header.add(HeaderConstant("LENGTH_B", size_b))
-        header.add(HeaderConstant("LENGTH_RES", len(vecExp)))
-        header.add(HeaderArray("vecA", "int8_t", vecA))
-        header.add(HeaderArray("vecB", "int8_t", vecB))
-        header.add(HeaderArray("vecExp", "int32_t", vecExp))
-        header.write()
+            # generate makefile
+            mkf = Makefile()
+            mkf.add_fc_test_source("test.c")
+            mkf.add_cl_test_source("cluster.c")
+            mkf.add_cl_prog_source("func/conv.c")
+            mkf.add_define("CONV_VERSION", conv_version)
+            mkf.write()
 
-        # compile and run
-        os.system("make clean all run > {}".format(RESULT_FILE))
+            # generate the stimuli
+            vecA, vecB, vecExp = gen_stimuli(size_a, size_b)
 
-        # parse output
-        result = parse_output(RESULT_FILE)
+            # prepare header file
+            header = HeaderFile("test_stimuli.h")
+            header.add(HeaderConstant("LENGTH_A", size_a))
+            header.add(HeaderConstant("LENGTH_B", size_b))
+            header.add(HeaderConstant("LENGTH_RES", len(vecExp)))
+            header.add(HeaderArray("vecA", "int8_t", vecA))
+            header.add(HeaderArray("vecB", "int8_t", vecB))
+            header.add(HeaderArray("vecExp", "int32_t", vecExp))
+            header.write()
 
-        # log the result
-        logger.show_subcase_result("x".join([str(size_a), str(size_b)]), result)
+            # compile and run
+            os.system("make clean all run > {}".format(RESULT_FILE))
+
+            # parse output
+            result = parse_output(RESULT_FILE)
+
+            casename = "V{}, {}x{}".format(conv_version, size_a, size_b)
+
+            # log the result
+            logger.show_subcase_result(casename, result)
 
     # return summary
     return logger.summary()

@@ -6,16 +6,36 @@
  *
  * The source code was taken and modified from pulp-platform/pulp-dsp:
  * @see https://github.com/pulp-platform/pulp-dsp/blob/master/src/FilteringFunctions/kernels/plp_conv_i8s_xpulpv2.c
+ *
+ * What is changed? (measurement, convolution of 1188 x 64)
+ * 0. Original method:                     (68579 Cycles, 63147 Instructions)
+ * 1. Load a always aligned                (68027 Cycles, 67361 Instructions)
+ * 2. Remaining elements only if necessary (65783 Cycles, 64242 Instructions)
+ * 3. Only load one new element of a       (69723 Cycles, 68492 Instructions), but maybe better for parallel?
  */
+
+#ifndef CONV_VERSION
+#define CONV_VERSION 2
+#endif
 
 #include "rt/rt_api.h"
 #include "plp_math.h"
 #include "functional.h"
 
 #define shufflemask1 (v4s){3,2,1,0}
+
+#if CONV_VERSION == 0
+
+#define shufflemask2 (v4s){1,2,3,5}
+#define shufflemask3 (v4s){2,3,5,6}
+
+#else
+
 #define shufflemask2 (v4s){1,2,3,4}
 #define shufflemask3 (v4s){2,3,4,5}
 #define shufflemask4 (v4s){3,4,5,6}
+
+#endif
 
 void func_conv(const int8_t* p_a,
                unsigned int a_len,
@@ -50,6 +70,10 @@ void func_conv(const int8_t* p_a,
 
     v4s _x1, _x2, _x3, _x4;
     v4s _y1, _y2;
+
+#if CONV_VERSION >= 3
+    v4s _x5;
+#endif
 
     block_size = a_len - (b_len - 1U);
 
@@ -94,6 +118,57 @@ void func_conv(const int8_t* p_a,
             /* Apply loop unrolling and compute 4 MACs simultaneously. */
             k = b_len >> 2U;
 
+#if CONV_VERSION == 0
+
+            /* First part of the processing with loop unrolling.  Compute 4 MACs at a
+             * a second loop below computes MACs for the remaining 1 to 3 samples. */
+            do {
+                /* Read y[b_len - 1] sample */
+                _x1 = *((v4s*)px); // {x[0],x[1],x[2],x[3]}
+                _x4 = *((v4s*)(px+3)); // {x[3],x[4],x[5],x[6]}
+                _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
+
+                px+=4U;
+                py-=4U;
+
+                _x2 = __builtin_shuffle(_x1,_x4, shufflemask2); // {x[1],x[2],x[3],x[4]}
+                _x3 = __builtin_shuffle(_x1,_x4, shufflemask3); // {x[2],x[3],x[4],x[5]}
+
+                _y1 = __builtin_shuffle(_y1,_y1,shufflemask1); // {y[b_len - 1],y[b_len - 2],y[b_len - 3],y[b_len - 4]} 
+
+                acc0 = __SUMDOTP4(_x1,_y1,acc0);
+                acc1 = __SUMDOTP4(_x2,_y1,acc1);
+                acc2 = __SUMDOTP4(_x3,_y1,acc2);
+                acc3 = __SUMDOTP4(_x4,_y1,acc3);
+
+            } while (--k);
+
+            /* If the b_len is not a multiple of 4, compute any remaining MACs here.
+            ** No loop unrolling is used. */
+
+            k = b_len % 0x4U;
+
+            _x1 = *((v4s*)px); // {x[0],x[1],x[2],x[3]}
+            _x4 = *((v4s*)(px+3)); // {x[3],x[4],x[5],x[6]}
+            _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
+
+            mask = ymask[k];
+
+            _x2 = __builtin_shuffle(_x1,_x4, shufflemask2); // {x[1],x[2],x[3],x[4]}
+            _x3 = __builtin_shuffle(_x1,_x4, shufflemask3); // {x[2],x[3],x[4],x[5]}
+
+            _y1 = __AND4(_y1,mask);	  
+            _y1 = __builtin_shuffle(_y1,_y1,shufflemask1);
+
+            /* Perform the multiply-accumulate */
+
+            acc0 = __SUMDOTP4(_x1,_y1,acc0);
+            acc1 = __SUMDOTP4(_x2,_y1,acc1);
+            acc2 = __SUMDOTP4(_x3,_y1,acc2);
+            acc3 = __SUMDOTP4(_x4,_y1,acc3);
+
+#elif CONV_VERSION == 1 || CONV_VERSION == 2
+
             /* First part of the processing with loop unrolling.  Compute 4 MACs at a
              * a second loop below computes MACs for the remaining 1 to 3 samples. */
             do {
@@ -123,25 +198,91 @@ void func_conv(const int8_t* p_a,
 
             k = b_len % 0x4U;
 
-            _x1 = *((v4s*)px); // {x[0],x[1],x[2],x[3]}
-            _x4 = *((v4s*)(px+4)); // {x[4],x[5],x[6],x[7]}
-            _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
+#if CONV_VERSION == 2
+            if (k > 0) {
+#endif
+                _x1 = *((v4s*)px); // {x[0],x[1],x[2],x[3]}
+                _x4 = *((v4s*)(px+4)); // {x[4],x[5],x[6],x[7]}
+                _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
 
-            mask = ymask[k];
+                mask = ymask[k];
 
-            _x2 = __builtin_shuffle(_x1,_x4, shufflemask2); // {x[1],x[2],x[3],x[4]}
-            _x3 = __builtin_shuffle(_x1,_x4, shufflemask3); // {x[2],x[3],x[4],x[5]}
-            _x4 = __builtin_shuffle(_x1,_x4, shufflemask4); // {x[3],x[4],x[5],x[6]}
+                _x2 = __builtin_shuffle(_x1,_x4, shufflemask2); // {x[1],x[2],x[3],x[4]}
+                _x3 = __builtin_shuffle(_x1,_x4, shufflemask3); // {x[2],x[3],x[4],x[5]}
+                _x4 = __builtin_shuffle(_x1,_x4, shufflemask4); // {x[3],x[4],x[5],x[6]}
 
-            _y1 = __AND4(_y1,mask);	  
-            _y1 = __builtin_shuffle(_y1,_y1,shufflemask1);
+                _y1 = __AND4(_y1,mask);	  
+                _y1 = __builtin_shuffle(_y1,_y1,shufflemask1);
 
-            /* Perform the multiply-accumulate */
+                /* Perform the multiply-accumulate */
 
-            acc0 = __SUMDOTP4(_x1,_y1,acc0);
-            acc1 = __SUMDOTP4(_x2,_y1,acc1);
-            acc2 = __SUMDOTP4(_x3,_y1,acc2);
-            acc3 = __SUMDOTP4(_x4,_y1,acc3);
+                acc0 = __SUMDOTP4(_x1,_y1,acc0);
+                acc1 = __SUMDOTP4(_x2,_y1,acc1);
+                acc2 = __SUMDOTP4(_x3,_y1,acc2);
+                acc3 = __SUMDOTP4(_x4,_y1,acc3);
+
+#if CONV_VERSION == 2
+            }
+#endif
+
+#elif CONV_VERSION == 3
+
+            /* First part of the processing with loop unrolling.  Compute 4 MACs at a
+             * a second loop below computes MACs for the remaining 1 to 3 samples. */
+            // prepare the next load
+            _x5 = *((v4s*)px);
+            do {
+                /* Read y[b_len - 1] sample */
+                _x1 = _x5;             // {x[0],x[1],x[2],x[3]}, loaded from before
+                _x5 = *((v4s*)(px+4)); // {x[4],x[5],x[6],x[7]}
+                _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
+
+                px+=4U;
+                py-=4U;
+
+                _x2 = __builtin_shuffle(_x1,_x5, shufflemask2); // {x[1],x[2],x[3],x[4]}
+                _x3 = __builtin_shuffle(_x1,_x5, shufflemask3); // {x[2],x[3],x[4],x[5]}
+                _x4 = __builtin_shuffle(_x1,_x5, shufflemask4); // {x[2],x[3],x[4],x[5]}
+
+                _y1 = __builtin_shuffle(_y1,_y1,shufflemask1); // {y[b_len - 1],y[b_len - 2],y[b_len - 3],y[b_len - 4]} 
+
+                acc0 = __SUMDOTP4(_x1,_y1,acc0);
+                acc1 = __SUMDOTP4(_x2,_y1,acc1);
+                acc2 = __SUMDOTP4(_x3,_y1,acc2);
+                acc3 = __SUMDOTP4(_x4,_y1,acc3);
+
+            } while (--k);
+
+            /* If the b_len is not a multiple of 4, compute any remaining MACs here.
+            ** No loop unrolling is used. */
+
+            k = b_len % 0x4U;
+
+            if (k > 0) {
+
+                _x1 = _x5;             // {x[0],x[1],x[2],x[3]}, loaded from before
+                _x5 = *((v4s*)(px+4)); // {x[4],x[5],x[6],x[7]}
+                _y1 = *((v4s*)(py-3)); // {y[b_len - 4],y[b_len - 3],y[b_len - 2],y[b_len - 1]} 
+
+                mask = ymask[k];
+
+                _x2 = __builtin_shuffle(_x1,_x5, shufflemask2); // {x[1],x[2],x[3],x[4]}
+                _x3 = __builtin_shuffle(_x1,_x5, shufflemask3); // {x[2],x[3],x[4],x[5]}
+                _x4 = __builtin_shuffle(_x1,_x5, shufflemask4); // {x[3],x[4],x[5],x[6]}
+
+                _y1 = __AND4(_y1,mask);	  
+                _y1 = __builtin_shuffle(_y1,_y1,shufflemask1);
+
+                /* Perform the multiply-accumulate */
+
+                acc0 = __SUMDOTP4(_x1,_y1,acc0);
+                acc1 = __SUMDOTP4(_x2,_y1,acc1);
+                acc2 = __SUMDOTP4(_x3,_y1,acc2);
+                acc3 = __SUMDOTP4(_x4,_y1,acc3);
+
+            }
+
+#endif //CONV_VERSION
 
             /* Store the result in the accumulator in the destination buffer. */
             *p_res++ = acc0;
@@ -193,7 +334,6 @@ void func_conv(const int8_t* p_a,
             mask = xmask[k];
             _x1 = __AND4(_x1,mask);
             sum = __SUMDOTP4(_x1,_y1,sum);
-
 
             /* Store the result in the accumulator in the destination buffer. */
             *p_res++ = sum;
@@ -247,4 +387,3 @@ void func_conv(const int8_t* p_a,
 
  
 }
-
