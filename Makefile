@@ -14,6 +14,7 @@ PULP_APP_CL_SRCS = \
 	src/cl/net/layer5.c \
 	src/cl/net/net.c \
 	src/cl/func/conv.c \
+	src/cl/func/xcorr.c \
 	src/cl/func/transform.c \
 	src/cl/func/flip.c \
 	src/cl/func/dotp.c \

@@ -13,11 +13,11 @@
  *
  * The operation is performed only in the valid range. This means that the output
  * size is a_len - b_len + 1.
- * 
+ *
  * The source code was taken and modified from pulp-platform/pulp-dsp:
  * @see https://github.com/pulp-platform/pulp-dsp/blob/master/src/FilteringFunctions/kernels/plp_conv_i8s_xpulpv2.c
-
- * 
+ *
+ *
  * @warning Data must be already present in L1 memory, and the output vector must 
  * be allocated
  *
@@ -33,12 +33,35 @@ void func_conv(const int8_t* p_a,
                unsigned int b_len,
                int32_t* p_res);
 
+/**
+ * @brief Compute the cross correlation of vectors a and b
+ *
+ * The operation is performed only in the valid range. This means that the output
+ * size is a_len - b_len + 1.
+ *
+ * The source code was taken and modified from pulp-platform/pulp-dsp:
+ * @see https://github.com/pulp-platform/pulp-dsp/blob/master/src/FilteringFunctions/kernels/plp_conv_i8s_xpulpv2.c
+ *
+ * @warning Data must be already present in L1 memory, and the output vector must 
+ * be allocated
+ *
+ * @param p_a Pointer to vector a on L1 memory
+ * @param a_len Length of vector a, a_len >= 2
+ * @param p_b Pointer to vector b on L1 memory
+ * @param b_len Length of vector b, b_len >= 2
+ * @param p_res Pointer to the output vector.
+ */
+void func_xcorr(const int8_t* p_a,
+                unsigned int a_len,
+                const int8_t* p_b,
+                unsigned int b_len,
+                int32_t* p_res);
 
 /**
  * @brief Convert a vector of 32bits back to 8bit (by scaling)
  *
  * Per element k, p_res[k] = (p_in[k * stride] + div_factor / 2) / div_factor
- * 
+ *
  * @warning Data must be already present in L1 memory, and the output vector must 
  * be allocated
  *
@@ -59,7 +82,7 @@ void func_transform_32to8(const int32_t* p_in,
  * @brief Convert a vector of 32bits back to 8bit (by scaling and shifting)
  *
  * Per element k, p_res[k] = (p_in[k * stride] + offset + div_factor / 2) / div_factor
- * 
+ *
  * @warning Data must be already present in L1 memory, and the output vector must 
  * be allocated
  *
@@ -79,7 +102,7 @@ void func_transform_32to8_bias(const int32_t* p_in,
 
 /**
  * @brief Flip inner and outer dimension of a 2d axis.
- * 
+ *
  * The inner dimension of the input array must be 4 Bytes aligned. This means, that every
  * row starts at an aligned address. However, the parameter inner_len must be given as the unaligned
  * number of elements.
@@ -88,7 +111,7 @@ void func_transform_32to8_bias(const int32_t* p_in,
  * already be allocated in local (L1) memory. The size will be: inner_len * ((outer_len + 3) / 4) * 4
  *
  * The data must be present in local L1 memory
- * 
+ *
  * @param p_in Pointer to the input vector on L1 memory, of shape outer_len * ((inner_len + 3) / 4) * 4
  * @param outer_len Length of the outer dimension, not necessarily aligned
  * @param inner_len Actual length of the inner dimension, not necessarily aligned
