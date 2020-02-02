@@ -9,8 +9,6 @@
 #include "functional.h"
 #include "stdio.h"
 
-#define SIGN_BIT(x) __BITEXTRACTU(x, 1, 31)
-
 /**
  * @brief Convert a vector of 32bits back to 8bit (by scaling and shifting)
  *
@@ -100,7 +98,6 @@ void func_transform_32to8(const int32_t* p_in,
         *((int32_t*)p_res) = (int32_t)__PACK4(_a, _b, _c, 0);
     }
 }
-
 
 /**
  * @brief Convert a vector of 32bits back to 8bit (by scaling and shifting)
