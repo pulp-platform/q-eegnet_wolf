@@ -25,7 +25,7 @@ typedef struct
 } _net_layer2_kernel_t;
 
 /**
- * @brief Layer2 kernel (convolves an output channel)
+ * @brief Layer2 kernel
  */
 void _net_layer2_kernel(void* args) {
 

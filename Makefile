@@ -25,7 +25,10 @@ PULP_CFLAGS = -O3 -g -DROUND
 PULP_CFLAGS += "-DPARALLEL"
 
 # scale data inside the convolution
-PULP_CFLAGS += "-DINTRINSIC_CONV_SCALE"
+PULP_CFLAGS += "-DINTRINSIC_SCALE"
+
+# Access data via dma streaming
+PULP_CFLAGS += "-DDMA_STREAM"
 
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"

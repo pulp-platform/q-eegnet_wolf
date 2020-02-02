@@ -60,7 +60,7 @@ def test():
             if parallel:
                 mkf.add_define("PARALLEL")
             if intrinsic_conv_scale:
-                mkf.add_define("INTRINSIC_CONV_SCALE")
+                mkf.add_define("INTRINSIC_SCALE")
 
             mkf.write()
 

@@ -196,7 +196,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     // allocate memory for two results and two inputs
     int8_t * _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_L1_PAD_INPUT_LEN_ALIGN);
     int8_t * _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_T_ALIGN);
-#ifndef INTRINSIC_CONV_SCALE
+#ifndef INTRINSIC_SCALE
     int32_t * _p_conv_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_T);
 #endif
     int8_t * _p_weight_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_L1_WEIGHT_LEN);
@@ -246,7 +246,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
                           RT_DMA_DIR_EXT2LOC, 0, &_copy);
             rt_dma_wait(&_copy);
 
-#ifdef INTRINSIC_CONV_SCALE
+#ifdef INTRINSIC_SCALE
             // convolve and scale the data (always the correct parts)
             func_conv_scale(_p_data_loc, NET_L1_PAD_INPUT_LEN,
                             _p_weight_loc, NET_L1_WEIGHT_LEN,
@@ -284,7 +284,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     // free up the memory
     rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_L1_PAD_INPUT_LEN_ALIGN);
     rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_T_ALIGN);
-#ifndef INTRINSIC_CONV_SCALE
+#ifndef INTRINSIC_SCALE
     rt_free(RT_ALLOC_CL_DATA, _p_conv_result_loc, sizeof(int32_t) * NET_T);
 #endif
     rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_L1_WEIGHT_LEN);
