@@ -72,7 +72,7 @@ def test():
     result = parse_output(RESULT_FILE)
 
     # log the result
-    subcase_name = "random input" if random_input else "actual input"
+    subcase_name = "naive"
     logger.show_subcase_result(subcase_name, result)
 
     # return summary

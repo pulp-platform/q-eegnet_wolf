@@ -41,38 +41,61 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/layer1.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/conv.c")
-    mkf.add_cl_prog_source("func/transform.c")
-    mkf.write()
+    for parallel in [False, True]:
+        for intrinsic_conv_scale in [False, True]:
 
-    random_input = False
+            # parallel requires intrinsic conv scale
+            if parallel and not intrinsic_conv_scale:
+                continue
 
-    # generate the stimuli
-    x, y_exp = gen_stimuli(random_input)
-    x_align = align_array(x)
-    y_exp_align = align_array(y_exp)
+            # generate makefile
+            mkf = Makefile()
+            mkf.add_fc_test_source("test.c")
+            mkf.add_cl_test_source("cluster.c")
+            mkf.add_cl_prog_source("net/layer1.c")
+            mkf.add_cl_prog_source("net/net.c")
+            mkf.add_cl_prog_source("func/conv.c")
+            mkf.add_cl_prog_source("func/transform.c")
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-    header.write()
+            if parallel:
+                mkf.add_define("PARALLEL")
+            if intrinsic_conv_scale:
+                mkf.add_define("INTRINSIC_CONV_SCALE")
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+            mkf.write()
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+            random_input = False
 
-    # log the result
-    subcase_name = "random input" if random_input else "actual input"
-    logger.show_subcase_result(subcase_name, result)
+            # generate the stimuli
+            x, y_exp = gen_stimuli(random_input)
+            x_align = align_array(x)
+            y_exp_align = align_array(y_exp)
+
+            # prepare header file
+            header = HeaderFile("test_stimuli.h")
+            header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+            header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+            header.write()
+
+            # compile and run
+            os.system("make clean all run > {}".format(RESULT_FILE))
+
+            # parse output
+            result = parse_output(RESULT_FILE)
+
+            # log the result
+            options = []
+            if parallel:
+                options.append("parallel")
+            if intrinsic_conv_scale:
+                options.append("intrinsic scale")
+
+            if options:
+                subcase_name = " + ".join(options)
+            else:
+                subcase_name = "naive"
+
+            logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()

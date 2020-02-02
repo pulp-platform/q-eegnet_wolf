@@ -22,10 +22,13 @@ PULP_APP_CL_SRCS = \
 PULP_CFLAGS = -O3 -g -DROUND
 
 # use parallel processing
-#PULP_CFLAGS += "-DPARALLEL"
+PULP_CFLAGS += "-DPARALLEL"
 
-# copy data while computing
-#PULP_CFLAGS += "-DDMA_WHILE_COMPUTE"
+# scale data inside the convolution
+PULP_CFLAGS += "-DINTRINSIC_CONV_SCALE"
+
+# convolution version used
+PULP_CFLAGS += "-DCONV_VERSION=2"
 
 PULP_LDFLAGS += -lplpdsp
 
