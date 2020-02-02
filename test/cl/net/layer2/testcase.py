@@ -47,51 +47,61 @@ def test():
     logger = TestLogger(TESTNAME, show_title=False)
 
     for parallel in [False, True]:
+        for dma_stream in [False, True]:
 
-        # generate makefile
-        mkf = Makefile()
-        mkf.add_fc_test_source("test.c")
-        mkf.add_cl_test_source("cluster.c")
-        mkf.add_cl_prog_source("net/layer2.c")
-        mkf.add_cl_prog_source("net/net.c")
-        mkf.add_cl_prog_source("func/transform.c")
-        mkf.add_cl_prog_source("func/dotp.c")
+            if not parallel and dma_stream:
+                # not implemented
+                continue
 
-        if parallel:
-            mkf.add_define("PARALLEL")
+            # generate makefile
+            mkf = Makefile()
+            mkf.add_fc_test_source("test.c")
+            mkf.add_cl_test_source("cluster.c")
+            mkf.add_cl_prog_source("net/layer2.c")
+            mkf.add_cl_prog_source("net/net.c")
+            mkf.add_cl_prog_source("func/transform.c")
+            mkf.add_cl_prog_source("func/dotp.c")
 
-        mkf.write()
+            if parallel:
+                mkf.add_define("PARALLEL")
 
-        random_input = False
+            if dma_stream:
+                mkf.add_define("DMA_STREAM")
 
-        # generate the stimuli
-        _, x_align, _, y_exp_align = gen_stimuli(random_input)
+            mkf.write()
 
-        # prepare header file
-        header = HeaderFile("test_stimuli.h")
-        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-        header.write()
+            random_input = False
 
-        # compile and run
-        os.system("make clean all run > {}".format(RESULT_FILE))
+            # generate the stimuli
+            _, x_align, _, y_exp_align = gen_stimuli(random_input)
 
-        # parse output
-        result = parse_output(RESULT_FILE)
+            # prepare header file
+            header = HeaderFile("test_stimuli.h")
+            header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+            header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+            header.write()
 
-        # log the result
-        subcase_name = "Layer 2 "
+            # compile and run
+            os.system("make clean all run > {}".format(RESULT_FILE))
 
-        options = []
-        if parallel:
-            options.append("parallel")
+            # parse output
+            result = parse_output(RESULT_FILE)
 
-        if options:
-            subcase_name += " + ".join(options)
-        else:
-            subcase_name += "naive"
+            # log the result
+            subcase_name = "Layer 2 "
 
-        logger.show_subcase_result(subcase_name, result)
+            options = []
+            if parallel:
+                options.append("parallel")
+            if dma_stream:
+                options.append("stream")
+
+            if options:
+                subcase_name += " + ".join(options)
+            else:
+                subcase_name += "naive"
+
+            logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()
