@@ -12,7 +12,9 @@
 
 #ifdef PARALLEL
 
-#define _NUM_WORKERS 8
+#ifndef NUM_WORKERS
+#define NUM_WORKERS 8
+#endif
 
 typedef struct
 {
@@ -51,8 +53,6 @@ void _net_layer1_kernel(void* args) {
 
     rt_dma_copy_t _copy;
 
-    printf("core %d, working on %x\n", core_id, _p_thread_data);
-
     // loop until all elements are computed
     while (_iter < NET_F1 * NET_C) {
 
@@ -79,7 +79,7 @@ void _net_layer1_kernel(void* args) {
         rt_dma_wait(&_copy);
         rt_team_critical_exit();
 
-        _iter += _NUM_WORKERS;
+        _iter += NUM_WORKERS;
 
     }
 
@@ -105,9 +105,6 @@ void _net_layer1_kernel(void* args) {
 void net_layer1(const int8_t* p_data, int8_t* p_result) {
 
 #ifdef PARALLEL
-#ifndef INTRINSIC_CONV_SCALE
-#error "Intrinsic conv scale is required for parallel computation"
-#endif
 
     const int8_t* _p_data_iter = p_data; // only used for data loading
     int8_t* _p_result_iter = p_result; // iterator over the result location
@@ -115,7 +112,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     // allocate memory for two results and two inputs
     int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_C * NET_L1_PAD_INPUT_LEN_ALIGN);
     int8_t* _p_weight_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN);
-    int8_t* _p_thread_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * _NUM_WORKERS * NET_T_ALIGN);
+    int8_t* _p_thread_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NUM_WORKERS * NET_T_ALIGN);
     int32_t* _p_factor_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F1);
     int32_t* _p_offset_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F1);
 
@@ -177,11 +174,11 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
     args.p_result = p_result;
 
     // call the cluster
-    rt_team_fork(_NUM_WORKERS, _net_layer1_kernel, (void*)(&args));
+    rt_team_fork(NUM_WORKERS, _net_layer1_kernel, (void*)(&args));
 
     // free up the memory
     rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_C * NET_L1_PAD_INPUT_LEN_ALIGN);
-    rt_free(RT_ALLOC_CL_DATA, _p_thread_data_loc, sizeof(int8_t) * _NUM_WORKERS * NET_T_ALIGN);
+    rt_free(RT_ALLOC_CL_DATA, _p_thread_data_loc, sizeof(int8_t) * NUM_WORKERS * NET_T_ALIGN);
     rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN);
     rt_free(RT_ALLOC_CL_DATA, _p_factor_loc, sizeof(int32_t) * NET_F1);
     rt_free(RT_ALLOC_CL_DATA, _p_offset_loc, sizeof(int32_t) * NET_F1);
