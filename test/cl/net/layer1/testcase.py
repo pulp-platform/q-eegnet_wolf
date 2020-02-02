@@ -11,7 +11,7 @@ from makefile import Makefile
 from golden_model import GoldenModel
 import functional as F
 
-TESTNAME = "cl::net::layer1"
+TESTNAME = "cl::net::layers"
 RESULT_FILE = "result.out"
 
 INPUT_FILENAME = "../../../../data/input.npz"
@@ -90,10 +90,11 @@ def test():
             if intrinsic_conv_scale:
                 options.append("intrinsic scale")
 
+            subcase_name = "Layer 1 "
             if options:
-                subcase_name = " + ".join(options)
+                subcase_name += " + ".join(options)
             else:
-                subcase_name = "naive"
+                subcase_name += "naive"
 
             logger.show_subcase_result(subcase_name, result)
 

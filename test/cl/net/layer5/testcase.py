@@ -42,7 +42,7 @@ def test():
     Returns: (n_total, n_success)
     """
 
-    logger = TestLogger(TESTNAME)
+    logger = TestLogger(TESTNAME, show_title=False)
 
     # generate makefile
     mkf = Makefile()
@@ -72,7 +72,7 @@ def test():
     result = parse_output(RESULT_FILE)
 
     # log the result
-    subcase_name = "random input" if random_input else "actual input"
+    subcase_name = "Layer 5 naive"
     logger.show_subcase_result(subcase_name, result)
 
     # return summary

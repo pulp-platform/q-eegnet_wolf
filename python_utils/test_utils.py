@@ -9,7 +9,7 @@ __date__ = "2020/01/23"
 
 import numpy as np
 
-DOT_LENGTH = 32
+DOT_LENGTH = 40
 
 RED_COLOR = "\033[1;31m"
 GREEN_COLOR = "\033[1;32m"
@@ -59,11 +59,12 @@ class TestLogger:
     """
     Class to display the logging result
     """
-    def __init__(self, name):
+    def __init__(self, name, show_title=True):
         self.name = name
         self.num_cases = 0
         self.num_successful = 0
-        print("\n**** Test Case: {}".format(self.name))
+        if show_title:
+            print("\n**** Test Case: {}".format(self.name))
 
     def show_subcase_result(self, subcase_name, results):
         """

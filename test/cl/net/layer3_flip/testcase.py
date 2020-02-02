@@ -38,7 +38,7 @@ def test():
     Returns: (n_total, n_success)
     """
 
-    logger = TestLogger(TESTNAME)
+    logger = TestLogger(TESTNAME, show_title=False)
 
     # generate makefile
     mkf = Makefile()
@@ -65,7 +65,7 @@ def test():
     result = parse_output(RESULT_FILE)
 
     # log the result
-    subcase_name = "inplace flip"
+    subcase_name = "Layer 3 flip"
     logger.show_subcase_result(subcase_name, result)
 
     # return summary
