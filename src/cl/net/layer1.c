@@ -315,6 +315,7 @@ void net_layer1_flip_inplace(int8_t* p_data) {
     int8_t * _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_T * NET_C_ALIGN);
 
     if (_p_data_loc == NULL || _p_result_loc == NULL) {
+        printf("Error: Not enough L1 memory");
         return;
     }
 
@@ -329,7 +330,11 @@ void net_layer1_flip_inplace(int8_t* p_data) {
         rt_dma_wait(&_copy);
 
         // flip
+#ifdef PARALLEL
+        func_flip_2d_axis_par(_p_data_loc, NET_C, NET_T, _p_result_loc);
+#else
         func_flip_2d_axis(_p_data_loc, NET_C, NET_T, _p_result_loc);
+#endif
 
         // copy the results back
         rt_dma_memcpy((unsigned int)_p_data_iter,

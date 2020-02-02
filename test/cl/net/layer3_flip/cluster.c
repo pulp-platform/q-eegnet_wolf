@@ -7,6 +7,8 @@
 
 int do_bench(rt_perf_t* perf, int events) {
 
+    printf("Compute layer...\n");
+
     //setup performance measurement
     rt_perf_conf(perf, events);
 

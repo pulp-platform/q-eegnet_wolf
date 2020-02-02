@@ -44,8 +44,8 @@ def test():
     mkf.add_cl_prog_source("func/flip.c")
     mkf.write()
 
-    for outer_len in [64, 65, 66, 67]:
-        for inner_len in [128, 129, 130, 131]:
+    for outer_len in [16, 17, 18, 19]:
+        for inner_len in [256, 257, 258, 259]:
             # generate the stimuli
             stim, exp = gen_stimuli(outer_len, inner_len)
 

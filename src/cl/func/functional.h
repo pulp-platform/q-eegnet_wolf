@@ -215,6 +215,28 @@ void func_flip_2d_axis(const int8_t* p_in,
                        int8_t* p_res);
 
 /**
+ * @brief Parallel function to flip inner and outer dimension of a 2d axis.
+ *
+ * The inner dimension of the input array must be 4 Bytes aligned. This means, that every
+ * row starts at an aligned address. However, the parameter inner_len must be given as the unaligned
+ * number of elements.
+ *
+ * The inner dimension of the output array will also be aligned to 4 Bytes. The output vector must
+ * already be allocated in local (L1) memory. The size will be: inner_len * ((outer_len + 3) / 4) * 4
+ *
+ * The data must be present in local L1 memory
+ *
+ * @param p_in Pointer to the input vector on L1 memory, of shape outer_len * ((inner_len + 3) / 4) * 4
+ * @param outer_len Length of the outer dimension, not necessarily aligned
+ * @param inner_len Actual length of the inner dimension, not necessarily aligned
+ * @param p_res Pointer to the output vector on L1 memory, must already be allocated.
+ */
+void func_flip_2d_axis_par(const int8_t* p_in,
+                           unsigned int outer_len,
+                           unsigned int inner_len,
+                           int8_t* p_res);
+
+/**
  * @brief computes dot product of the two vectors p_a and p_b
  *
  * @param p_a Pointer to first vector on L1 memory, should be aligned

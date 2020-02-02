@@ -32,12 +32,43 @@ int do_bench(rt_perf_t* perf, int events) {
     return success;
 }
 
+
+int do_bench_par(rt_perf_t* perf, int events) {
+    //setup performance measurement
+    rt_perf_conf(perf, events);
+
+    // start performance measurement
+    rt_perf_reset(perf);
+    rt_perf_start(perf);
+
+    func_flip_2d_axis_par(p_x_l1, OUTER_LEN, INNER_LEN, p_y_l1);
+
+    rt_perf_stop(perf);
+
+    int success = 0;
+    for (int i = 0; i < INNER_LEN * OUTER_LEN_ALIGN; i++) {
+        if (p_exp_l1[i] != p_y_l1[i]) {
+            int outer = i / OUTER_LEN_ALIGN;
+            int inner = i % OUTER_LEN_ALIGN;
+            printf("Error at: %d,%d: acq=%d, exp=%d\n", outer, inner, p_y_l1[i], p_exp_l1[i]);
+            success = 1;
+        }
+    }
+
+    return success;
+}
+
 void cluster_entry(void* arg) {
 
     // allocate memory
     p_x_l1 = rt_alloc(RT_ALLOC_CL_DATA, sizeof(vec_x));
     p_y_l1 = rt_alloc(RT_ALLOC_CL_DATA, sizeof(vec_exp));
     p_exp_l1 = rt_alloc(RT_ALLOC_CL_DATA, sizeof(vec_exp));
+
+    if (p_exp_l1 == NULL) {
+        printf("Not enough memory!\n");
+        return;
+    }
 
     // copy memory
     rt_dma_copy_t copy;
@@ -57,10 +88,22 @@ void cluster_entry(void* arg) {
 
     // print the results
     if (result == 0) {
-        printf("## 1: result: OK\n");
+        printf("## normal: result: OK\n");
     } else {
-        printf("## 1: result: FAIL\n");
+        printf("## normal: result: FAIL\n");
     }
-    printf("## 1: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
-    printf("## 1: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
+    printf("## normal: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
+    printf("## normal: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
+
+    // test without bias
+    result = do_bench_par(&perf, (1<<RT_PERF_CYCLES | 1<<RT_PERF_INSTR));
+
+    // print the results
+    if (result == 0) {
+        printf("## parallel: result: OK\n");
+    } else {
+        printf("## parallel: result: FAIL\n");
+    }
+    printf("## parallel: cycles: %d\n", rt_perf_read(RT_PERF_CYCLES));
+    printf("## parallel: instructions: %d\n", rt_perf_read(RT_PERF_INSTR));
 }

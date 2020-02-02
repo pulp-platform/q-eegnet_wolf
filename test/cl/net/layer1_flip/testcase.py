@@ -41,33 +41,45 @@ def test():
 
     logger = TestLogger(TESTNAME, show_title=False)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/layer1.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/flip.c")
-    mkf.write()
+    for parallel in [False, True]:
 
-    # generate the stimuli
-    _, x_align, y_exp, y_exp_align = gen_stimuli()
+        # generate makefile
+        mkf = Makefile()
+        mkf.add_fc_test_source("test.c")
+        mkf.add_cl_test_source("cluster.c")
+        mkf.add_cl_prog_source("net/layer1.c")
+        mkf.add_cl_prog_source("net/net.c")
+        mkf.add_cl_prog_source("func/flip.c")
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel(), const=False))
-    header.add(HeaderArray("y_exp", "int8_t", y_exp_align.ravel(), const=False))
-    header.write()
+        if parallel:
+            mkf.add_define("PARALLEL")
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+        mkf.write()
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+        # generate the stimuli
+        _, x_align, y_exp, y_exp_align = gen_stimuli()
 
-    # log the result
-    subcase_name = "Layer 1 flip"
-    logger.show_subcase_result(subcase_name, result)
+        # prepare header file
+        header = HeaderFile("test_stimuli.h")
+        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel(), const=False))
+        header.add(HeaderArray("y_exp", "int8_t", y_exp_align.ravel(), const=False))
+        header.write()
+
+        # compile and run
+        os.system("make clean all run > {}".format(RESULT_FILE))
+
+        # parse output
+        result = parse_output(RESULT_FILE)
+
+        # log the result
+        subcase_name = "Layer 1 flip "
+
+        if parallel:
+            subcase_name += "parallel"
+        else:
+            subcase_name += "naive"
+
+        logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()

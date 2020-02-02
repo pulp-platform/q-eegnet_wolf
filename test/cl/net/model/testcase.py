@@ -45,63 +45,68 @@ def test():
 
     for parallel in [False, True]:
         for intrinsic_conv_scale in [False, True]:
+            for dma_stream in [False, True]:
 
-            # parallel requires intrinsic conv scale
-            if parallel and not intrinsic_conv_scale:
-                continue
+                # parallel requires intrinsic conv scale
+                if parallel and not intrinsic_conv_scale:
+                    continue
 
-            # generate makefile
-            mkf = Makefile()
-            mkf.add_fc_test_source("test.c")
-            mkf.add_cl_test_source("cluster.c")
-            mkf.add_cl_prog_source("net/model.c")
-            mkf.add_cl_prog_source("net/layer1.c")
-            mkf.add_cl_prog_source("net/layer2.c")
-            mkf.add_cl_prog_source("net/layer3.c")
-            mkf.add_cl_prog_source("net/layer4.c")
-            mkf.add_cl_prog_source("net/layer5.c")
-            mkf.add_cl_prog_source("net/net.c")
-            mkf.add_cl_prog_source("func/transform.c")
-            mkf.add_cl_prog_source("func/dotp.c")
-            mkf.add_cl_prog_source("func/conv.c")
-            mkf.add_cl_prog_source("func/flip.c")
+                # generate makefile
+                mkf = Makefile()
+                mkf.add_fc_test_source("test.c")
+                mkf.add_cl_test_source("cluster.c")
+                mkf.add_cl_prog_source("net/model.c")
+                mkf.add_cl_prog_source("net/layer1.c")
+                mkf.add_cl_prog_source("net/layer2.c")
+                mkf.add_cl_prog_source("net/layer3.c")
+                mkf.add_cl_prog_source("net/layer4.c")
+                mkf.add_cl_prog_source("net/layer5.c")
+                mkf.add_cl_prog_source("net/net.c")
+                mkf.add_cl_prog_source("func/transform.c")
+                mkf.add_cl_prog_source("func/dotp.c")
+                mkf.add_cl_prog_source("func/conv.c")
+                mkf.add_cl_prog_source("func/flip.c")
 
-            if parallel:
-                mkf.add_define("PARALLEL")
-            if intrinsic_conv_scale:
-                mkf.add_define("INTRINSIC_CONV_SCALE")
+                if parallel:
+                    mkf.add_define("PARALLEL")
+                if intrinsic_conv_scale:
+                    mkf.add_define("INTRINSIC_SCALE")
+                if dma_stream:
+                    mkf.add_define("DMA_STREAM")
 
-            mkf.write()
+                mkf.write()
 
-            # generate the stimuli
-            _, x_align, _, y_exp_align = gen_stimuli()
+                # generate the stimuli
+                _, x_align, _, y_exp_align = gen_stimuli()
 
-            # prepare header file
-            header = HeaderFile("test_stimuli.h")
-            header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-            header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-            header.write()
+                # prepare header file
+                header = HeaderFile("test_stimuli.h")
+                header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+                header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+                header.write()
 
-            # compile and run
-            os.system("make clean all run > {}".format(RESULT_FILE))
+                # compile and run
+                os.system("make clean all run > {}".format(RESULT_FILE))
 
-            # parse output
-            result = parse_output(RESULT_FILE)
+                # parse output
+                result = parse_output(RESULT_FILE)
 
-            # prepare the case name
-            options = []
-            if parallel:
-                options.append("parallel")
-            if intrinsic_conv_scale:
-                options.append("intrinsic scale")
+                # prepare the case name
+                options = []
+                if parallel:
+                    options.append("parallel")
+                if intrinsic_conv_scale:
+                    options.append("intrinsic scale")
+                if dma_stream:
+                    options.append("stream")
 
-            if options:
-                subcase_name = " + ".join(options)
-            else:
-                subcase_name = "naive"
+                if options:
+                    subcase_name = " + ".join(options)
+                else:
+                    subcase_name = "naive"
 
-            # log the result
-            logger.show_subcase_result(subcase_name, result)
+                # log the result
+                logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()
