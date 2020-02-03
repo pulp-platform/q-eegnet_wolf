@@ -88,6 +88,34 @@ void func_xcorr(const int8_t* p_a,
                 int32_t* p_res);
 
 /**
+ * @brief Compute the cross correlation of vectors a and b, and scales the result back to 8bit
+ *
+ * The operation is performed only in the valid range. This means that the output
+ * size is a_len - b_len + 1.
+ *
+ * The source code was taken and modified from pulp-platform/pulp-dsp:
+ * @see https://github.com/pulp-platform/pulp-dsp/blob/master/src/FilteringFunctions/kernels/plp_conv_i8s_xpulpv2.c
+ *
+ * @warning Data must be already present in L1 memory, and the output vector must 
+ * be allocated
+ *
+ * @param p_a Pointer to vector a on L1 memory
+ * @param a_len Length of vector a, a_len >= 2
+ * @param p_b Pointer to vector b on L1 memory
+ * @param b_len Length of vector b, b_len >= 2
+ * @param div_factor factor by which the result is divided
+ * @param offset Bias which is added to the result before division.
+ * @param p_res Pointer to the output vector.
+ */
+void func_xcorr_scale(const int8_t* p_a,
+                      unsigned int a_len,
+                      const int8_t* p_b,
+                      unsigned int b_len,
+                      int32_t div_factor,
+                      int32_t offset,
+                      int8_t* p_res);
+
+/**
  * @brief Convert a vector of 32bits back to 8bit (by scaling)
  *
  * Per element k, p_res[k] = (p_in[k * stride] + div_factor / 2) / div_factor

@@ -30,6 +30,9 @@ PULP_CFLAGS += "-DINTRINSIC_SCALE"
 # Access data via dma streaming
 PULP_CFLAGS += "-DDMA_STREAM"
 
+# Use Cross Correlation instead of Convolution
+PULP_CFLAGS += "-DCROSS_CORRELATE"
+
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"
 

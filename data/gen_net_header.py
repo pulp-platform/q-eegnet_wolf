@@ -69,10 +69,11 @@ def gen_net_header(net_file, config_file, output_file):
     # Layer 1
     input_scale = convert.ste_quant(net, "quant1")
     weight, weight_scale = convert.inq_conv2d(net, "conv1")
+    weight = weight.reshape(net_params["F1"], 64)
+    weight_reverse, _ = convert.inq_conv2d(net, "conv1", store_reversed=True)
     bn_scale, bn_offset = convert.batch_norm(net, "batch_norm1")
     output_scale = convert.ste_quant(net, "quant2")
     factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset)
-    weight = weight.reshape(net_params["F1"], 64)
 
     header.add(HeaderComment("Layer 1\n"
                              "=======\n"
@@ -89,6 +90,7 @@ def gen_net_header(net_file, config_file, output_file):
     header.add(HeaderArray("net_l1_offset", "int32_t", offset.ravel()))
     header.add(HeaderConstant("NET_L1_WEIGHT_LEN", weight.shape[-1]))
     header.add(HeaderArray("net_l1_weight", "int8_t", weight.ravel()))
+    header.add(HeaderArray("net_l1_weight_reverse", "int8_t", weight_reverse.ravel()))
 
     # layer2
     input_scale = convert.ste_quant(net, "quant2")
