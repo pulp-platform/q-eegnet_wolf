@@ -51,7 +51,12 @@ def parse_output(filename):
             if parts[1] == "result":
                 parsed[parts[0]]["result"] = parts[2] == "OK"
             else:
-                parsed[parts[0]][parts[1]] = parts[2]
+                parsed[parts[0]][parts[1].lower()] = parts[2]
+
+    # add IPC to the output
+    for case in parsed.values():
+        if "cycles" in case and "instructions" in case:
+            case["ipc"] = "{:.3f}".format(int(case["instructions"]) / int(case["cycles"]))
     return parsed
 
 
@@ -81,6 +86,8 @@ class TestLogger:
             options = []
             for k in sorted(result):
                 v = result[k]
+                if k == "instructions":
+                    k = "insn"
                 if k == "result":
                     continue
                 if isinstance(v, float) or isinstance(v, np.float32):
@@ -105,6 +112,8 @@ class TestLogger:
                     v = result[k]
                     if k == "result":
                         continue
+                    if k == "instructions":
+                        k = "insn"
                     if isinstance(v, float) or isinstance(v, np.float32):
                         options.append("{}: {:.2E}".format(k, v))
                     else:
