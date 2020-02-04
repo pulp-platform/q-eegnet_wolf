@@ -21,7 +21,7 @@ void cluster_entry(void *arg)
     // print the result
     printf("Result:\n");
     for (int i = 0; i < NET_N; i++) {
-        printf("Class %d: %d", i + 1, _p_output[i]);
+        printf("Class %d: %d\n", i + 1, _p_output[i]);
     }
 
     // free memory

@@ -26,7 +26,7 @@ def test_main(root_folder):
     # go a directory up and build the project, without running it
     os.chdir("..")
     print("Building the project...")
-    os.system("./run.sh -b > /dev/null")
+    os.system("./run.sh -n > /dev/null")
     # go back to the test directory
     os.chdir(old_cwd)
 

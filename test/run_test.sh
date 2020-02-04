@@ -21,7 +21,6 @@ printf "Testing on Platform: %s\n\n" $PLATFORM
 
 ROOT=${@:$OPTIND:1}
 
-
 # setup environmental variables
 PYTHONPATH="$PYTHONPATH:$(pwd)/../python_utils"
 
