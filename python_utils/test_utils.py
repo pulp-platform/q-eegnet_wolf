@@ -82,7 +82,10 @@ class TestLogger:
         assert results
         if len(results) == 1:
             result = list(results.values())[0]
-            success_str = SUCCESS_STR if result["result"] else FAIL_STR
+            if result["result"] is None:
+                success_str = "SKIP"
+            else:
+                success_str = SUCCESS_STR if result["result"] else FAIL_STR
             options = []
             for k in sorted(result):
                 v = result[k]
@@ -100,13 +103,17 @@ class TestLogger:
             print("{}{} {}" .format(subcase_name.ljust(DOT_LENGTH, "."), success_str, options_str))
 
             # keep track of statistics
-            self.num_cases += 1
-            if result["result"]:
-                self.num_successful += 1
+            if result["result"] is not None:
+                self.num_cases += 1
+                if result["result"]:
+                    self.num_successful += 1
         else:
             for case_id in sorted(results):
                 result = results[case_id]
-                success_str = SUCCESS_STR if result["result"] else FAIL_STR
+                if result["result"] is None:
+                    success_str = "SKIP"
+                else:
+                    success_str = SUCCESS_STR if result["result"] else FAIL_STR
                 options = []
                 for k in sorted(result):
                     v = result[k]
@@ -125,9 +132,10 @@ class TestLogger:
                 print("{}{} {}" .format(subcase_str.ljust(DOT_LENGTH, "."), success_str, options_str))
 
                 # keep track of statistics
-                self.num_cases += 1
-                if result["result"]:
-                    self.num_successful += 1
+                if result["result"] is not None:
+                    self.num_cases += 1
+                    if result["result"]:
+                        self.num_successful += 1
 
     def summary(self):
         """

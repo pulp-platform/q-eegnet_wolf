@@ -95,6 +95,10 @@ def test():
         # parse output
         result = parse_output(RESULT_FILE)
 
+        # skip the naive result
+        if not flip_layers:
+            result["1"]["result"] = None
+
         # prepare the case name
         options = []
         if flip_layers:

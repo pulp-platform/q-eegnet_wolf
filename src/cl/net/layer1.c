@@ -200,11 +200,7 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
 #else //PARALLEL
 
     const int8_t* _p_data_iter = p_data;
-#ifdef CROSS_CORRELATE
-    const int8_t* _p_weight_iter = net_l1_weight_reverse;
-#else //CROSS_CORRELATE
     const int8_t* _p_weight_iter = net_l1_weight;
-#endif
     int8_t* _p_result_iter = p_result;
 
     /*
@@ -265,31 +261,16 @@ void net_layer1(const int8_t* p_data, int8_t* p_result) {
             rt_dma_wait(&_copy);
 
 #ifdef INTRINSIC_SCALE
-#ifdef CROSS_CORRELATE
-            // corss correlate and scale the data (always the correct parts)
-            func_xcorr_scale(_p_data_loc, NET_L1_PAD_INPUT_LEN,
-                             _p_weight_loc, NET_L1_WEIGHT_LEN,
-                             _convert_factor, _convert_offset,
-                             _p_result_loc);
-#else //CROSS_CORRELATE
             // convolve and scale the data (always the correct parts)
             func_conv_scale(_p_data_loc, NET_L1_PAD_INPUT_LEN,
                             _p_weight_loc, NET_L1_WEIGHT_LEN,
                             _convert_factor, _convert_offset,
                             _p_result_loc);
-#endif //CROSS_CORRELATE
 #else  //INTRINSIC_SCALE
-#ifdef CROSS_CORRELATE
-            // convolve the data (always the correct parts)
-            func_xcorr(_p_data_loc, NET_L1_PAD_INPUT_LEN,
-                       _p_weight_loc, NET_L1_WEIGHT_LEN,
-                       _p_conv_result_loc);
-#else //CROSS_CORRELATE
             // convolve the data (always the correct parts)
             func_conv(_p_data_loc, NET_L1_PAD_INPUT_LEN,
                       _p_weight_loc, NET_L1_WEIGHT_LEN,
                       _p_conv_result_loc);
-#endif //CROSS_CORRELATE
 
             // scale the data and pack it back to 8bit
             func_transform_32to8_bias(_p_conv_result_loc, NET_T,

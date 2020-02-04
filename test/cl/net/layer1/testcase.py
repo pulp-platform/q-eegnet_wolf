@@ -49,6 +49,10 @@ def test():
                 if parallel and not intrinsic_conv_scale:
                     continue
 
+                # not implemented
+                if cross_correlate and not parallel:
+                    continue
+
                 # generate makefile
                 mkf = Makefile()
                 mkf.add_fc_test_source("test.c")
@@ -98,7 +102,7 @@ def test():
 
                 subcase_name = "Layer 1 "
                 if options:
-                    subcase_name += " + ".join(options)
+                    subcase_name += "; ".join(options)
                 else:
                     subcase_name += "naive"
 
