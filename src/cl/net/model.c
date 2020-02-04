@@ -30,8 +30,10 @@ void net_model_compute(const int8_t* p_data, int8_t* p_output) {
     // compute layer 1
     net_layer1(p_data, _p_l1_output);
 
+#ifdef FLIP_LAYERS
     // flip the dimension
     net_layer1_flip_inplace(_p_l1_output);
+#endif
 
     /*
      * Layer 2
@@ -56,8 +58,10 @@ void net_model_compute(const int8_t* p_data, int8_t* p_output) {
     // compute layer 3
     net_layer3(_p_l2_output, _p_l3_output);
 
+#ifdef FLIP_LAYERS
     // flip the dimension
     net_layer3_flip_inplace(_p_l3_output);
+#endif
 
     // free l2 memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*)_p_l2_output, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);

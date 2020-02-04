@@ -98,3 +98,56 @@ int32_t func_dotp(const int8_t* p_a,
 
     return _acc0 + _acc1;
 }
+
+/**
+ * @brief computes dot product of the two vectors p_a and p_b without SIMD
+ *
+ * @param p_a Pointer to first vector on L1 memory, alignment does not matter at all
+ * @param a_stride Distance between each element in the first vector.
+ * @param p_b Pointer to second vector on L1 memory, alignment does not matter at all
+ * @param b_stride Distance between each element in the second vector.
+ * @param length Lenght (number of elements) of both vectors
+ * @return dot product
+ */
+int32_t func_dotp_slow(const int8_t* p_a,
+                       unsigned int a_stride,
+                       const int8_t* p_b,
+                       unsigned int b_stride,
+                       unsigned int length) {
+
+    const int8_t* _p_a_iter = p_a;
+    const int8_t* _p_b_iter = p_b;
+
+    int32_t _acc0 = 0, _acc1 = 0;
+    int8_t _a0, _a1, _b0, _b1;
+
+    unsigned int _num_blk = length / 2;
+    unsigned int _num_rem = length % 2;
+
+    while (_num_blk > 0) {
+
+        _a0 = *_p_a_iter;
+        _b0 = *_p_b_iter;
+        _a1 = *(_p_a_iter + a_stride);
+        _b1 = *(_p_b_iter + b_stride);
+
+        _acc0 = __MAC(_acc0, _a0, _b0);
+        _acc1 = __MAC(_acc1, _a1, _b1);
+
+        // go to next element
+        _p_a_iter += 2 * a_stride;
+        _p_b_iter += 2 * b_stride;
+        _num_blk--;
+
+    }
+
+    if (_num_rem) {
+        _a0 = *_p_a_iter;
+        _b0 = *_p_b_iter;
+
+        _acc0 = __MAC(_acc0, _a0, _b0);
+    }
+
+    return _acc0 + _acc1;
+
+}

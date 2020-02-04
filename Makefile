@@ -21,6 +21,9 @@ PULP_APP_CL_SRCS = \
 
 PULP_CFLAGS = -O3 -g -DROUND
 
+# flip layer 1 and layer 3 for faster dot product implementatoin
+PULP_CFLAGS += "-DFLIP_LAYERS"
+
 # use parallel processing
 PULP_CFLAGS += "-DPARALLEL"
 

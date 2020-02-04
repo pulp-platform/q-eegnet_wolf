@@ -19,7 +19,7 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input):
+def gen_stimuli(random_input, flip):
     """
     This function generates the stimuli (input and output) for the test
     """
@@ -31,9 +31,12 @@ def gen_stimuli(random_input):
         x = np.load(INPUT_FILENAME)["layer3_activ"][0, :, 0, :]
         x = F.quantize_to_int(x, layer.input_scale)
     y_exp = layer(x)
-    x_flip = np.transpose(x)
-    x_align = np.zeros((align_array_size(model.T // 8), model.F2), dtype=int)
-    x_align[:model.T//8, :model.F2] = x_flip
+    if flip:
+        x_flip = np.transpose(x)
+        x_align = np.zeros((align_array_size(model.T // 8), model.F2), dtype=int)
+        x_align[:model.T//8, :model.F2] = x_flip
+    else:
+        x_align = align_array(x)
     y_exp_align = align_array(y_exp)
     return x, x_align, y_exp, y_exp_align
 
@@ -46,36 +49,50 @@ def test():
 
     logger = TestLogger(TESTNAME, show_title=False)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/layer4.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/transform.c")
-    mkf.add_cl_prog_source("func/dotp.c")
-    mkf.write()
+    for flip_layers in [False, True]:
 
-    random_input = False
+        # generate makefile
+        mkf = Makefile()
+        mkf.add_fc_test_source("test.c")
+        mkf.add_cl_test_source("cluster.c")
+        mkf.add_cl_prog_source("net/layer4.c")
+        mkf.add_cl_prog_source("net/net.c")
+        mkf.add_cl_prog_source("func/transform.c")
+        mkf.add_cl_prog_source("func/dotp.c")
 
-    # generate the stimuli
-    _, x_align, _, y_exp_align = gen_stimuli(random_input)
+        if flip_layers:
+            mkf.add_define("FLIP_LAYERS")
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-    header.write()
+        mkf.write()
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+        random_input = False
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+        # generate the stimuli
+        _, x_align, _, y_exp_align = gen_stimuli(random_input, flip_layers)
 
-    # log the result
-    subcase_name = "Layer 4 naive"
-    logger.show_subcase_result(subcase_name, result)
+        # prepare header file
+        header = HeaderFile("test_stimuli.h")
+        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+        header.write()
+
+        # compile and run
+        os.system("make clean all run > {}".format(RESULT_FILE))
+
+        # parse output
+        result = parse_output(RESULT_FILE)
+
+        # log the result
+        options = []
+        if flip_layers:
+            options.append("flipped")
+
+        subcase_name = "Layer 4 "
+        if options:
+            subcase_name += "; ".join(options)
+        else:
+            subcase_name += "naive"
+        logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()

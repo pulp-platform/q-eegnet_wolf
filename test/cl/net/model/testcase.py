@@ -43,11 +43,12 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for intrinsic, parallel, stream, xcorr in [(False, False, False, False),
-                                               (True, False, False, False),
-                                               (True, True, False, False),
-                                               (True, True, True, False),
-                                               (True, True, True, True)]:
+    for flip_layers, intrinsic, parallel, stream, xcorr in [(False, False, False, False, False),
+                                                            (True, False, False, False, False),
+                                                            (True, True, False, False, False),
+                                                            (True, True, True, False, False),
+                                                            (True, True, True, True, False),
+                                                            (True, True, True, True, True)]:
 
         # generate makefile
         mkf = Makefile()
@@ -66,6 +67,8 @@ def test():
         mkf.add_cl_prog_source("func/flip.c")
         mkf.add_cl_prog_source("func/xcorr.c")
 
+        if flip_layers:
+            mkf.add_define("FLIP_LAYERS")
         if parallel:
             mkf.add_define("PARALLEL")
         if intrinsic:
@@ -94,6 +97,8 @@ def test():
 
         # prepare the case name
         options = []
+        if flip_layers:
+            options.append("flip")
         if intrinsic:
             options.append("intr.s.")
         if parallel:
@@ -104,7 +109,7 @@ def test():
             options.append("xcorr")
 
         if options:
-            subcase_name = " + ".join(options)
+            subcase_name = "; ".join(options)
         else:
             subcase_name = "naive"
 

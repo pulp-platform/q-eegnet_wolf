@@ -265,6 +265,22 @@ void func_flip_2d_axis_par(const int8_t* p_in,
                            int8_t* p_res);
 
 /**
+ * @brief computes dot product of the two vectors p_a and p_b without SIMD and loop unrolling
+ *
+ * @param p_a Pointer to first vector on L1 memory, alignment does not matter at all
+ * @param a_stride Distance between each element in the first vector.
+ * @param p_b Pointer to second vector on L1 memory, alignment does not matter at all
+ * @param b_stride Distance between each element in the second vector.
+ * @param length Lenght (number of elements) of both vectors
+ * @return dot product
+ */
+int32_t func_dotp_slow(const int8_t* p_a,
+                       unsigned int a_stride,
+                       const int8_t* p_b,
+                       unsigned int b_stride,
+                       unsigned int length);
+
+/**
  * @brief computes dot product of the two vectors p_a and p_b
  *
  * @param p_a Pointer to first vector on L1 memory, should be aligned
