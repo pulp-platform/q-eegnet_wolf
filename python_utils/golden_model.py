@@ -19,7 +19,7 @@ class GoldenModel:
     """
     Golden EEGNet Model
     """
-    def __init__(self, config_file, net_file, clip_balanced=True):
+    def __init__(self, config_file, net_file, clip_balanced=True, no_scale_between_l1_l2=False):
         """
         Initialize the model based on the config file and the npz file containing all weights
 
@@ -59,13 +59,21 @@ class GoldenModel:
         assert self.F2 == self.F1 * self.D
 
         # load individual layers
-        self.layers = [
-            Layer1(net, **net_params, clip_balanced=clip_balanced),
-            Layer2(net, **net_params, clip_balanced=clip_balanced),
-            Layer3(net, **net_params, clip_balanced=clip_balanced),
-            Layer4(net, **net_params, clip_balanced=clip_balanced),
-            Layer5(net, **net_params, clip_balanced=clip_balanced)
-        ]
+        if no_scale_between_l1_l2:
+            self.layers = [
+                FusedLayer12(net, **net_params, clip_balanced=clip_balanced),
+                Layer3(net, **net_params, clip_balanced=clip_balanced),
+                Layer4(net, **net_params, clip_balanced=clip_balanced),
+                Layer5(net, **net_params, clip_balanced=clip_balanced)
+            ]
+        else:
+            self.layers = [
+                Layer1(net, **net_params, clip_balanced=clip_balanced),
+                Layer2(net, **net_params, clip_balanced=clip_balanced),
+                Layer3(net, **net_params, clip_balanced=clip_balanced),
+                Layer4(net, **net_params, clip_balanced=clip_balanced),
+                Layer5(net, **net_params, clip_balanced=clip_balanced)
+            ]
 
         self.input_scale = self.layers[0].input_scale
         self.output_scale = self.layers[-1].output_scale
@@ -126,6 +134,79 @@ class Layer:
     def mem_size(self):
         """ Returns the number of bytes in memory """
         return 0
+
+
+class FusedLayer12(Layer):
+    """
+    Convolution(time) + BN + Convolution(space) + BN + RELU + POOL, no scale in between
+    """
+    def __init__(self, net, C, T, F1, F2, clip_balanced=True, **params):
+        self.name = "Layer 1: Convolution in Time + Batch Norm"
+        self.C = C
+        self.T = T
+        self.F1 = F1
+        self.F2 = F2
+        self.input_shape = ((C, T))
+        self.output_shape = ((F2, T // 8))
+        self.clip_balanced = clip_balanced
+
+        # fetch weights
+        self.weights_1, self.weight_scale_1 = convert.inq_conv2d(net, "conv1")
+        assert self.weights_1.shape == (self.F1, 1, 1, 64)
+        self.weights_1 = np.reshape(self.weights_1, (self.F1, 64))
+
+        self.weights_2, self.weight_scale_2 = convert.inq_conv2d(net, "conv2")
+        assert self.weights_2.shape == (self.F2, 1, self.C, 1)
+        self.weights_2 = np.reshape(self.weights_2, (self.F2, self.C))
+
+        # fetch batch norm offset and scale
+        self.input_scale = convert.ste_quant(net, "quant1")
+        self.intermediate_scale = convert.ste_quant(net, "quant2")
+        self.output_scale = convert.ste_quant(net, "quant3")
+        self.bn_scale_1, self.bn_offset_1 = convert.batch_norm(net, "batch_norm1")
+        self.bn_scale_2, self.bn_offset_2 = convert.batch_norm(net, "batch_norm2")
+        self.factor_1, self.bias_1 = convert.div_factor_batch_norm(self.input_scale, self.weight_scale_1,
+                                                                   self.intermediate_scale, self.bn_scale_1,
+                                                                   self.bn_offset_1)
+        self.factor_2, self.bias_2 = convert.div_factor_batch_norm(self.intermediate_scale, self.weight_scale_2,
+                                                                   self.output_scale, self.bn_scale_2,
+                                                                   self.bn_offset_2, pool=8)
+        # update the factors and scales
+        for k in range(16):
+            self.factor_2[k] *= self.factor_1[k // 2]
+            self.bias_2[k] *= self.factor_1[k // 2]
+
+    def num_params(self):
+        count = reduce(mul, self.weights_1.shape)
+        count += reduce(mul, self.factor_1.shape)
+        count += reduce(mul, self.bias_1.shape)
+        count += reduce(mul, self.weights_2.shape)
+        count += reduce(mul, self.factor_2.shape)
+        count += reduce(mul, self.bias_2.shape)
+        return count
+
+    def mem_size(self):
+        count = reduce(mul, self.weights_1.shape)
+        count += 4 * reduce(mul, self.factor_1.shape)
+        count += 4 * reduce(mul, self.bias_1.shape)
+        count += 4 * reduce(mul, self.weights_2.shape)
+        count += 4 * reduce(mul, self.factor_2.shape)
+        count += 4 * reduce(mul, self.bias_2.shape)
+        return count
+
+    def __call__(self, x):
+        assert x.shape == self.input_shape, "shape was {}".format(x.shape)
+        y = F.conv_time(x, self.weights_1)
+        # add the offset
+        for k in range(self.F1):
+            y[k] += self.bias_1[k]
+
+        # do the second layer
+        y = F.depthwise_conv_space(y, self.weights_2)
+        y = F.relu(y, -(self.bias_2 // 8))
+        y = F.pool(y, (1, 8))
+        y = F.apply_factor_offset(y, self.factor_2, self.bias_2, clip_balanced=self.clip_balanced)
+        return y
 
 
 class Layer1(Layer):

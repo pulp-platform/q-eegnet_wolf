@@ -112,6 +112,7 @@ def gen_net_header(net_file, config_file, output_file):
     header.add(HeaderArray("net_l2_offset", "int32_t", offset.ravel()))
     header.add(HeaderConstant("NET_L2_WEIGHT_LEN", weight.shape[-1]))
     header.add(HeaderArray("net_l2_weight", "int8_t", weight.ravel()))
+    header.add(HeaderArray("net_l2_weight_32", "int32_t", weight.ravel()))
 
     # layer3
     input_scale = convert.ste_quant(net, "quant3")

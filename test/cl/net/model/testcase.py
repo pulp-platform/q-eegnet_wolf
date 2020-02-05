@@ -19,11 +19,11 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input=False):
+def gen_stimuli(random_input=False, no_div=False):
     """
     This function generates the stimuli (input and output) for the test
     """
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False)
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False, no_scale_between_l1_l2=no_div)
     if random_input:
         x = np.random.randint(-60, 60, (model.C, model.T))
     else:
@@ -43,13 +43,14 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for flip_layers, intrinsic, parallel, stream, xcorr, fuse in [(False, False, False, False, False, False),
-                                                                  (True, False, False, False, False, False),
-                                                                  (True, True, False, False, False, False),
-                                                                  (True, True, True, False, False, False),
-                                                                  (True, True, True, True, False, False),
-                                                                  (True, True, True, True, True, False),
-                                                                  (True, True, True, True, True, True)]:
+    for flip_layers, intrinsic, parallel, stream, xcorr, fuse, no_div in [(False, False, False, False, False, False, False),
+                                                                          (True, False, False, False, False, False, False),
+                                                                          (True, True, False, False, False, False, False),
+                                                                          (True, True, True, False, False, False, False),
+                                                                          (True, True, True, True, False, False, False),
+                                                                          (True, True, True, True, True, False, False),
+                                                                          (True, True, True, True, True, True, False),
+                                                                          (True, True, True, True, True, True, True)]:
 
         # generate makefile
         mkf = Makefile()
@@ -81,11 +82,13 @@ def test():
             mkf.add_define("CROSS_CORRELATE")
         if fuse:
             mkf.add_define("FUSE_LAYERS")
+        if no_div:
+            mkf.add_define("NO_INTERMEDIATE_SCALE")
 
         mkf.write()
 
         # generate the stimuli
-        _, x_align, _, y_exp_align = gen_stimuli()
+        _, x_align, _, y_exp_align = gen_stimuli(no_div=no_div)
 
         # prepare header file
         header = HeaderFile("test_stimuli.h")
@@ -104,24 +107,21 @@ def test():
             result["1"]["result"] = None
 
         # prepare the case name
-        options = []
+        subcase_name = "naive"
         if flip_layers:
-            options.append("flip")
+            subcase_name = "+ flip"
         if intrinsic:
-            options.append("intr.")
+            subcase_name = "+ intrinsic scale"
         if parallel:
-            options.append("par")
+            subcase_name = "+ parallel"
         if stream:
-            options.append("stream")
+            subcase_name = "+ double buffering"
         if xcorr:
-            options.append("xcorr")
+            subcase_name = "+ cross correlations"
         if fuse:
-            options.append("fused")
-
-        if options:
-            subcase_name = "; ".join(options)
-        else:
-            subcase_name = "naive"
+            subcase_name = "+ fused layer 1+2"
+        if no_div:
+            subcase_name = "+ no division after layer 1"
 
         # log the result
         logger.show_subcase_result(subcase_name, result)

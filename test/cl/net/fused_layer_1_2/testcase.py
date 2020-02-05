@@ -19,19 +19,29 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input):
+def gen_stimuli(random_input, no_div=False):
     """
     This function generates the stimuli (input and output) for the test
     """
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False)
-    layer1 = model.layers[0]
-    layer2 = model.layers[1]
-    if random_input:
-        x = np.random.randint(-60, 60, (model.C, model.T))
+    if no_div:
+        model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False, no_scale_between_l1_l2=True)
+        layer = model.layers[0]
+        if random_input:
+            x = np.random.randint(-60, 60, (model.C, model.T))
+        else:
+            x = np.load(INPUT_FILENAME)["input"][0, :, :]
+            x = F.quantize_to_int(x, layer.input_scale)
+        y_exp = layer(x)
     else:
-        x = np.load(INPUT_FILENAME)["input"][0, :, :]
-        x = F.quantize_to_int(x, layer1.input_scale)
-    y_exp = layer2(layer1(x))
+        model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False)
+        layer1 = model.layers[0]
+        layer2 = model.layers[1]
+        if random_input:
+            x = np.random.randint(-60, 60, (model.C, model.T))
+        else:
+            x = np.load(INPUT_FILENAME)["input"][0, :, :]
+            x = F.quantize_to_int(x, layer1.input_scale)
+        y_exp = layer2(layer1(x))
     x_align = align_array(x)
     y_exp_align = align_array(y_exp)
     return x, x_align, y_exp, y_exp_align
@@ -45,49 +55,56 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/fused_layer_1_2.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/conv.c")
-    mkf.add_cl_prog_source("func/xcorr.c")
-    mkf.add_cl_prog_source("func/dotp.c")
-    mkf.add_cl_prog_source("func/transform.c")
+    for no_intermediate_scale in [False, True]:
 
-    mkf.add_define("PARALLEL")
-    mkf.add_define("INTRINSIC_SCALE")
-    mkf.add_define("CROSS_CORRELATE")
-    mkf.add_define("FUSE_LAYERS")
+        # generate makefile
+        mkf = Makefile()
+        mkf.add_fc_test_source("test.c")
+        mkf.add_cl_test_source("cluster.c")
+        mkf.add_cl_prog_source("net/fused_layer_1_2.c")
+        mkf.add_cl_prog_source("net/net.c")
+        mkf.add_cl_prog_source("func/conv.c")
+        mkf.add_cl_prog_source("func/xcorr.c")
+        mkf.add_cl_prog_source("func/dotp.c")
+        mkf.add_cl_prog_source("func/transform.c")
 
-    mkf.write()
+        mkf.add_define("PARALLEL")
+        mkf.add_define("INTRINSIC_SCALE")
+        mkf.add_define("CROSS_CORRELATE")
+        mkf.add_define("FUSE_LAYERS")
 
-    random_input = False
+        if no_intermediate_scale:
+            mkf.add_define("NO_INTERMEDIATE_SCALE")
 
-    # generate the stimuli
-    _, x_align, _, y_exp_align = gen_stimuli(random_input)
+        mkf.write()
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-    header.write()
+        random_input = False
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+        # generate the stimuli
+        _, x_align, _, y_exp_align = gen_stimuli(random_input, no_intermediate_scale)
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+        # prepare header file
+        header = HeaderFile("test_stimuli.h")
+        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+        header.write()
 
-    # log the result
-    options = []
+        # compile and run
+        os.system("make clean all run > {}".format(RESULT_FILE))
 
-    subcase_name = "Fused Layer 1+2 "
-    if options:
-        subcase_name += "; ".join(options)
+        # parse output
+        result = parse_output(RESULT_FILE)
 
-    logger.show_subcase_result(subcase_name, result)
+        # log the result
+        options = []
+        if no_intermediate_scale:
+            options.append("no scale")
+
+        subcase_name = "Fused Layer 1+2 "
+        if options:
+            subcase_name += "; ".join(options)
+
+        logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()

@@ -26,6 +26,7 @@ int do_bench(rt_perf_t* perf, int events) {
         for (int t = 0; t < NET_T8; t++) {
             if (p_output[k * NET_T8_ALIGN + t] != y_exp_vec[k * NET_T8_ALIGN + t]) {
                 num_err++;
+                printf("error at: k=%d, t=%d, acq=%d, exp=%d\n", k, t, p_output[k * NET_T8_ALIGN + t], y_exp_vec[k * NET_T8_ALIGN + t]);
             }
         }
     }

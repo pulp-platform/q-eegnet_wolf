@@ -40,6 +40,9 @@ PULP_CFLAGS += "-DCROSS_CORRELATE"
 # fuse layer 1 and 2
 PULP_CFLAGS += "-DFUSE_LAYERS"
 
+# skip division between layer 1 and 2
+PULP_CFLAGS += "-DNO_INTERMEDIATE_SCALE"
+
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"
 
