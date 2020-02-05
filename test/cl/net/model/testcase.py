@@ -43,12 +43,13 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for flip_layers, intrinsic, parallel, stream, xcorr in [(False, False, False, False, False),
-                                                            (True, False, False, False, False),
-                                                            (True, True, False, False, False),
-                                                            (True, True, True, False, False),
-                                                            (True, True, True, True, False),
-                                                            (True, True, True, True, True)]:
+    for flip_layers, intrinsic, parallel, stream, xcorr, fuse in [(False, False, False, False, False, False),
+                                                                  (True, False, False, False, False, False),
+                                                                  (True, True, False, False, False, False),
+                                                                  (True, True, True, False, False, False),
+                                                                  (True, True, True, True, False, False),
+                                                                  (True, True, True, True, True, False),
+                                                                  (True, True, True, True, True, True)]:
 
         # generate makefile
         mkf = Makefile()
@@ -60,6 +61,7 @@ def test():
         mkf.add_cl_prog_source("net/layer3.c")
         mkf.add_cl_prog_source("net/layer4.c")
         mkf.add_cl_prog_source("net/layer5.c")
+        mkf.add_cl_prog_source("net/fused_layer_1_2.c")
         mkf.add_cl_prog_source("net/net.c")
         mkf.add_cl_prog_source("func/transform.c")
         mkf.add_cl_prog_source("func/dotp.c")
@@ -77,6 +79,8 @@ def test():
             mkf.add_define("DMA_STREAM")
         if xcorr:
             mkf.add_define("CROSS_CORRELATE")
+        if fuse:
+            mkf.add_define("FUSE_LAYERS")
 
         mkf.write()
 
@@ -104,13 +108,15 @@ def test():
         if flip_layers:
             options.append("flip")
         if intrinsic:
-            options.append("intr.s.")
+            options.append("intr.")
         if parallel:
             options.append("par")
         if stream:
             options.append("stream")
         if xcorr:
             options.append("xcorr")
+        if fuse:
+            options.append("fused")
 
         if options:
             subcase_name = "; ".join(options)

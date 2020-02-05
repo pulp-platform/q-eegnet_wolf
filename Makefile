@@ -7,6 +7,7 @@ PULP_APP_CL_SRCS = \
     src/cl/cluster.c \
 	src/cl/input.c \
 	src/cl/net/model.c \
+	src/cl/net/fused_layer_1_2.c \
 	src/cl/net/layer1.c \
 	src/cl/net/layer2.c \
 	src/cl/net/layer3.c \
@@ -35,6 +36,9 @@ PULP_CFLAGS += "-DDMA_STREAM"
 
 # Use Cross Correlation instead of Convolution
 PULP_CFLAGS += "-DCROSS_CORRELATE"
+
+# fuse layer 1 and 2
+PULP_CFLAGS += "-DFUSE_LAYERS"
 
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"

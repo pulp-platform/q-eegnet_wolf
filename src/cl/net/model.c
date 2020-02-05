@@ -24,6 +24,13 @@ void net_model_compute(const int8_t* p_data, int8_t* p_output) {
      * Layer 1
      */
 
+#ifdef FUSE_LAYERS
+
+    int8_t * _p_l2_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
+
+    net_fused_layer_1_2(p_data, _p_l2_output);
+
+#else //FUSE_LAYERS
     // allocate data for result
     int8_t * _p_l1_output = rt_alloc(RT_ALLOC_L2_CL_DATA, sizeof(int8_t) * NET_F1 * NET_C_ALIGN * NET_T_ALIGN);
 
@@ -47,6 +54,8 @@ void net_model_compute(const int8_t* p_data, int8_t* p_output) {
 
     // free l1 memory
     rt_free(RT_ALLOC_L2_CL_DATA, (void*)_p_l1_output, sizeof(int8_t) * NET_F1 * NET_C_ALIGN * NET_T_ALIGN);
+
+#endif //FUSE_LAYERS
 
     /*
      * Layer 3

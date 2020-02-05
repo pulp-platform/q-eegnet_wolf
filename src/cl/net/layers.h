@@ -53,6 +53,16 @@ void net_layer1_flip_inplace(int8_t* p_data);
 void net_layer2(const int8_t* p_data, int8_t * p_result);
 
 /**
+ * @brief Execute the 1st and the 2nd layer
+ * 
+ * @warning p_result must already be allocated on L2!
+ *
+ * @param p_data Pointer to the input data, of shape [NET_C, NET_T], aligned to [NET_C, NET_T_ALIGN]
+ * @param p_result Pointer to the output data of shape [NET_F2, NET_T8] aligned to [NET_F2, NET_T8_ALIGN].
+ */
+void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result);
+
+/**
  * @brief Execute the 3rd layer
  * 
  * This layer does the following operation on the data:
