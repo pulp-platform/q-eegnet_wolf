@@ -44,36 +44,50 @@ def test():
 
     logger = TestLogger(TESTNAME, show_title=False)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/layer3.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/transform.c")
-    mkf.add_cl_prog_source("func/conv.c")
-    mkf.write()
+    for parallel in [False, True]:
 
-    random_input = False
+        # generate makefile
+        mkf = Makefile()
+        mkf.add_fc_test_source("test.c")
+        mkf.add_cl_test_source("cluster.c")
+        mkf.add_cl_prog_source("net/layer3.c")
+        mkf.add_cl_prog_source("net/net.c")
+        mkf.add_cl_prog_source("func/transform.c")
+        mkf.add_cl_prog_source("func/conv.c")
 
-    # generate the stimuli
-    _, x_align, _, y_exp_align = gen_stimuli(random_input)
+        if parallel:
+            mkf.add_define("PARALLEL")
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-    header.write()
+        mkf.write()
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+        random_input = False
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+        # generate the stimuli
+        _, x_align, _, y_exp_align = gen_stimuli(random_input)
 
-    # log the result
-    subcase_name = "Layer 3 naive"
-    logger.show_subcase_result(subcase_name, result)
+        # prepare header file
+        header = HeaderFile("test_stimuli.h")
+        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+        header.write()
+
+        # compile and run
+        os.system("make clean all run > {}".format(RESULT_FILE))
+
+        # parse output
+        result = parse_output(RESULT_FILE)
+
+        # log the result
+        options = []
+        if parallel:
+            options.append("parallel")
+
+        subcase_name = "layer 3 "
+        if options:
+            subcase_name += " + ".join(options)
+        else:
+            subcase_name += "naive"
+        logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()
