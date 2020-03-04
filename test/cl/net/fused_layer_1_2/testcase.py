@@ -19,7 +19,7 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input, no_div=False):
+def gen_stimuli(random_input, no_div=False, pad_data=False):
     """
     This function generates the stimuli (input and output) for the test
     """
@@ -42,9 +42,19 @@ def gen_stimuli(random_input, no_div=False):
             x = np.load(INPUT_FILENAME)["input"][0, :, :]
             x = F.quantize_to_int(x, layer1.input_scale)
         y_exp = layer2(layer1(x))
-    x_align = align_array(x)
+
     y_exp_align = align_array(y_exp)
-    return x, x_align, y_exp, y_exp_align
+
+    if pad_data:
+        C, T = x.shape
+        T_pad = T + 63
+        assert T_pad % 4 == 0
+        x_pad = np.zeros((C, T_pad), dtype=np.int)
+        x_pad[:, 31:31 + T] = x
+        return x, x_pad, y_exp, y_exp_align
+    else:
+        x_align = align_array(x)
+        return x, x_align, y_exp, y_exp_align
 
 
 def test():
@@ -55,10 +65,12 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for no_intermediate_scale in [False, True]:
+    for no_intermediate_scale, duplicate_featuremap in [(False, False),
+                                                        (True, False),
+                                                        (True, True)]:
 
         # generate makefile
-        mkf = Makefile()
+        mkf = Makefile(opt_level=2 if duplicate_featuremap else 3)
         mkf.add_fc_test_source("test.c")
         mkf.add_cl_test_source("cluster.c")
         mkf.add_cl_prog_source("net/fused_layer_1_2.c")
@@ -76,12 +88,16 @@ def test():
         if no_intermediate_scale:
             mkf.add_define("NO_INTERMEDIATE_SCALE")
 
+        if duplicate_featuremap:
+            mkf.add_define("DUPLICATE_FEATUREMAP")
+
         mkf.write()
 
         random_input = False
 
         # generate the stimuli
-        _, x_align, _, y_exp_align = gen_stimuli(random_input, no_intermediate_scale)
+        _, x_align, _, y_exp_align = gen_stimuli(random_input, no_intermediate_scale,
+                                                 duplicate_featuremap)
 
         # prepare header file
         header = HeaderFile("test_stimuli.h")
@@ -99,6 +115,8 @@ def test():
         options = []
         if no_intermediate_scale:
             options.append("no scale")
+        if duplicate_featuremap:
+            options.append("dup inp")
 
         subcase_name = "Fused Layer 1+2 "
         if options:

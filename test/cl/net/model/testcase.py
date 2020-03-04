@@ -19,7 +19,7 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input=False, no_div=False):
+def gen_stimuli(random_input=False, no_div=False, pad_data=False):
     """
     This function generates the stimuli (input and output) for the test
     """
@@ -30,9 +30,18 @@ def gen_stimuli(random_input=False, no_div=False):
         x = np.load(INPUT_FILENAME)["input"][0, :, :]
         x = F.quantize_to_int(x, model.input_scale)
     y_exp = model(x)
-    x_align = align_array(x)
     y_exp_align = align_array(y_exp)
-    return x, x_align, y_exp, y_exp_align
+
+    if pad_data:
+        C, T = x.shape
+        T_pad = T + 63
+        assert T_pad % 4 == 0
+        x_pad = np.zeros((C, T_pad), dtype=np.int)
+        x_pad[:, 31:31 + T] = x
+        return x, x_pad, y_exp, y_exp_align
+    else:
+        x_align = align_array(x)
+        return x, x_align, y_exp, y_exp_align
 
 
 def test():
@@ -43,17 +52,20 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for flip_layers, intrinsic, parallel, stream, xcorr, fuse, no_div in [(False, False, False, False, False, False, False),
-                                                                          (True, False, False, False, False, False, False),
-                                                                          (True, True, False, False, False, False, False),
-                                                                          (True, True, True, False, False, False, False),
-                                                                          (True, True, True, True, False, False, False),
-                                                                          (True, True, True, True, True, False, False),
-                                                                          (True, True, True, True, True, True, False),
-                                                                          (True, True, True, True, True, True, True)]:
+    for flip_layers, intrinsic, parallel, stream, xcorr, fuse, no_div, dup_inp in [
+            (False, False, False, False, False, False, False, False),
+            (True, False, False, False, False, False, False, False),
+            (True, True, False, False, False, False, False, False),
+            (True, True, True, False, False, False, False, False),
+            (True, True, True, True, False, False, False, False),
+            (True, True, True, True, True, False, False, False),
+            (True, True, True, True, True, True, False, False),
+            (True, True, True, True, True, True, True, False),
+            (True, True, True, True, True, True, True, True)
+    ]:
 
         # generate makefile
-        mkf = Makefile()
+        mkf = Makefile(opt_level=2 if dup_inp else 3)
         mkf.add_fc_test_source("test.c")
         mkf.add_cl_test_source("cluster.c")
         mkf.add_cl_prog_source("net/model.c")
@@ -84,11 +96,13 @@ def test():
             mkf.add_define("FUSE_LAYERS")
         if no_div:
             mkf.add_define("NO_INTERMEDIATE_SCALE")
+        if dup_inp:
+            mkf.add_define("DUPLICATE_FEATUREMAP")
 
         mkf.write()
 
         # generate the stimuli
-        _, x_align, _, y_exp_align = gen_stimuli(no_div=no_div)
+        _, x_align, _, y_exp_align = gen_stimuli(no_div=no_div, pad_data=dup_inp)
 
         # prepare header file
         header = HeaderFile("test_stimuli.h")
@@ -122,6 +136,8 @@ def test():
             subcase_name = "+ fused layer 1+2"
         if no_div:
             subcase_name = "+ no division after layer 1"
+        if dup_inp:
+            subcase_name = "+ duplicate featuremap"
 
         # log the result
         logger.show_subcase_result(subcase_name, result)

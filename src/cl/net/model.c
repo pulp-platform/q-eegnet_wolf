@@ -16,6 +16,7 @@
  * @warning p_output must already be allocated on L2 memory
  *
  * @param p_data Pointer to input data on L2 memory, of shape [NET_C, NET_T], aligned to [NET_C, NET_T_ALIGN]
+ *               If DUPLICATE_FEATUREMAP is enabled, the data must be padded, of shape [NET_C, NET_L1_PAD_INPUT_LEN]
  * @param p_output Pointer to output data, allocated on L2 memory, of shape [NET_N]
  */
 void net_model_compute(const int8_t* p_data, int8_t* p_output) {

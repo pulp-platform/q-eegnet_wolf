@@ -14,12 +14,13 @@ FILES_IN_ROOT = {".git", ".gitignore", "src", "test", "doc", "data", "Makefile"}
 
 class Makefile:
     """ Makefile generation """
-    def __init__(self, project_root=None, use_dsp=True):
+    def __init__(self, project_root=None, use_dsp=True, opt_level=3):
         self.fc_sources = []
         self.cl_sources = []
         self.defines = []
         self.use_dsp = use_dsp
         self.project_root = project_root
+        self.opt_level=opt_level
         if self.project_root is None:
             # search the project root
             self.project_root = os.getcwd()
@@ -66,7 +67,7 @@ class Makefile:
     def __str__(self):
         ret = ""
         ret += "PULP_APP = test\n\n"
-        
+
         # add cl sources
         if self.cl_sources:
             ret += "PULP_APP_CL_SRCS = \\\n"
@@ -82,7 +83,8 @@ class Makefile:
         # link dsp library
         if self.use_dsp:
             ret += "PULP_LDFLAGS += -lplpdsp\n"
-        ret += "PULP_CFLAGS = -O3 -g \n\n"
+
+        ret += "PULP_CFLAGS = -O{} -g \n\n".format(self.opt_level)
 
         # add compiler flags
         ret += "\n".join(["PULP_CFLAGS += -D{}".format(define) for define in self.defines])

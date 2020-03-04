@@ -20,7 +20,7 @@ PULP_APP_CL_SRCS = \
 	src/cl/func/flip.c \
 	src/cl/func/dotp.c \
 
-PULP_CFLAGS = -O3 -g -DROUND
+PULP_CFLAGS = -O2 -g -DROUND
 
 # flip layer 1 and layer 3 for faster dot product implementatoin
 PULP_CFLAGS += "-DFLIP_LAYERS"
@@ -42,6 +42,9 @@ PULP_CFLAGS += "-DFUSE_LAYERS"
 
 # skip division between layer 1 and 2
 PULP_CFLAGS += "-DNO_INTERMEDIATE_SCALE"
+
+# Use fastest method including duplicate the input featuremap
+PULP_CFLAGS += "-DDUPLICATE_FEATUREMAP"
 
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"
