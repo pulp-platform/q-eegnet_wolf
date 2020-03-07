@@ -56,7 +56,7 @@
 // dimension the split, it is important that all parts are divisible by 8
 // We split it into 5 parts, of size
 #define _T_SPLIT_LEN 240
-#define _T_SPLIT_MEM_OFFSET 0
+#define _T_SPLIT_MEM_OFFSET (4 * 9)
 #define _T_SPLIT_LEN_LAST (NET_L1_PAD_INPUT_LEN - (_T_SPLIT_LEN * 4))
 #define _T_SPLIT_MEM_SIZE ((_T_SPLIT_LEN > _T_SPLIT_LEN_LAST ? _T_SPLIT_LEN : _T_SPLIT_LEN_LAST) * NET_C + _T_SPLIT_MEM_OFFSET)
 #if (_T_SPLIT_LEN % 8 != 0)
@@ -123,10 +123,10 @@ void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
         }
 
         // store the values as 1 byte in the appropriate position
-        *(_p_result_iter + 0 * NET_C_ALIGN) = _acc0;
-        *(_p_result_iter + 1 * NET_C_ALIGN) = _acc1;
-        *(_p_result_iter + 2 * NET_C_ALIGN) = _acc2;
-        *(_p_result_iter + 3 * NET_C_ALIGN) = _acc3;
+        *(_p_result_iter + 0 * NET_C) = _acc0;
+        *(_p_result_iter + 1 * NET_C) = _acc1;
+        *(_p_result_iter + 2 * NET_C) = _acc2;
+        *(_p_result_iter + 3 * NET_C) = _acc3;
 
         // go to the next value in the thread data
         _p_result_iter++;
@@ -220,10 +220,10 @@ void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
         }
 
         // store the values as 1 byte in the appropriate position
-        *(_p_result_iter + 0 * NET_C_ALIGN) = _acc0;
-        *(_p_result_iter + 1 * NET_C_ALIGN) = _acc1;
-        *(_p_result_iter + 2 * NET_C_ALIGN) = _acc2;
-        *(_p_result_iter + 3 * NET_C_ALIGN) = _acc3;
+        *(_p_result_iter + 0 * NET_C) = _acc0;
+        *(_p_result_iter + 1 * NET_C) = _acc1;
+        *(_p_result_iter + 2 * NET_C) = _acc2;
+        *(_p_result_iter + 3 * NET_C) = _acc3;
 
         // go to the next value in the thread data
         _p_result_iter++;
@@ -263,10 +263,10 @@ void _net_fused_layer_1_2_kernel_dotp_acc(const int32_t* p_data,
 
     for (int _ch = 0; _ch < NET_C; _ch++) {
 
-        _a0 = *(_p_data_iter + 0 * NET_C_ALIGN);
-        _a1 = *(_p_data_iter + 1 * NET_C_ALIGN);
-        _a2 = *(_p_data_iter + 2 * NET_C_ALIGN);
-        _a3 = *(_p_data_iter + 3 * NET_C_ALIGN);
+        _a0 = *(_p_data_iter + 0 * NET_C);
+        _a1 = *(_p_data_iter + 1 * NET_C);
+        _a2 = *(_p_data_iter + 2 * NET_C);
+        _a3 = *(_p_data_iter + 3 * NET_C);
 
         _b0 = *_p_weight_iter;
         _b1 = *(_p_weight_iter + NET_L2_WEIGHT_LEN);
@@ -386,7 +386,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
     _p_weight_l2 += _core_id * 2 * NET_L2_WEIGHT_LEN;
     _p_factor_l2 += _core_id * 2;
     _p_offset_l2 += _core_id * 2;
-    _p_thread_data += _core_id * NET_C_ALIGN * 4;
+    _p_thread_data += _core_id * NET_C * 4;
 
     // load the scaling factors
     int32_t _factor_l1 = *_p_factor_l1;
@@ -911,7 +911,7 @@ void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
     int32_t* _p_factor_l2_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
     int32_t* _p_offset_l2_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
 
-    int32_t* _p_thread_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NUM_WORKERS * NET_C_ALIGN * 4);
+    int32_t* _p_thread_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NUM_WORKERS * NET_C * 4);
 
     // error handling
     if (_p_thread_data_loc == NULL) {
@@ -987,7 +987,7 @@ void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
     rt_free(RT_ALLOC_CL_DATA, _p_factor_l2_loc, sizeof(int32_t) * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_offset_l2_loc, sizeof(int32_t) * NET_F2);
 
-    rt_free(RT_ALLOC_CL_DATA, _p_thread_data_loc, sizeof(int32_t) * NUM_WORKERS * NET_C_ALIGN * 4);
+    rt_free(RT_ALLOC_CL_DATA, _p_thread_data_loc, sizeof(int32_t) * NUM_WORKERS * NET_C * 4);
 
 }
 
