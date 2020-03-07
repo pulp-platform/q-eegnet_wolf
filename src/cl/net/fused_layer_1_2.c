@@ -71,31 +71,42 @@
 /**
  * @brief this function computes the convolution of 4 values in time of all channels
  *
+ * @param core_id
  * @param p_data pointer to the current data where we start the convolution, must be in the first channel
  * @param stride number of elements in a single row of data
  * @param p_weight Pointer to the weight vector
  * @param offset Amount to offset the result at the end of the computation
  * @param p_result pointer to the result data of size [4, NET_C_ALIGN], must be thread local data
  */
-void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
+void _net_fused_layer_1_2_kernel_conv(unsigned int core_id,
+                                      const int8_t* p_data,
                                       unsigned int stride,
                                       const int8_t* p_weight,
                                       uint32_t offset,
                                       int32_t* p_result) {
 
     // setup iterators
-    const int8_t* _p_data_iter;
+    const int8_t* _p_data_iter0;
+    const int8_t* _p_data_iter1;
+    const int8_t* _p_data_iter2;
+    const int8_t* _p_data_iter3;
     const int8_t* _p_weight_iter = p_weight;
-    int32_t* _p_result_iter = p_result;
 
     // declare local variables
     int32_t _acc0, _acc1, _acc2, _acc3;
-    v4s _x0, _x1, _x2, _x3, _y;
 
-    for (int _ch = 0; _ch < NET_C; _ch++) {
+    for (int _ch_t = 0; _ch_t < NET_C; _ch_t++) {
+
+        //int _ch = _ch_t + core_id;
+        //if (_ch >= NET_C) _ch -= NET_C;
+        int _ch = _ch_t;
+
 
         // setup the iteration
-        _p_data_iter = p_data + _ch * stride;
+        _p_data_iter0 = p_data + _ch * stride;
+        _p_data_iter1 = p_data + _ch * stride + 1 * _T_SPLIT_MEM_SIZE;
+        _p_data_iter2 = p_data + _ch * stride + 2 * _T_SPLIT_MEM_SIZE;
+        _p_data_iter3 = p_data + _ch * stride + 3 * _T_SPLIT_MEM_SIZE;
         _p_weight_iter = p_weight;
 
         _acc0 = offset;
@@ -103,33 +114,33 @@ void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
         _acc2 = offset;
         _acc3 = offset;
 
-        // do the dot product of 4 values at the same time
-        for (int _i = 0; _i < NET_L1_WEIGHT_LEN / 4; _i++) {
-            // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
-            _y = *((v4s*)_p_weight_iter);
-
-            _acc0 = __SUMDOTP4(_x0, _y, _acc0);
-            _acc1 = __SUMDOTP4(_x1, _y, _acc1);
-            _acc2 = __SUMDOTP4(_x2, _y, _acc2);
-            _acc3 = __SUMDOTP4(_x3, _y, _acc3);
-
-            // go to the next iteration
-            _p_data_iter += 4;
-            _p_weight_iter += 4;
-        }
+        asm volatile("lp.setup x0,%[num_t],36;"
+                     "   p.lw s9,4(%[p_weight]!);"
+                     "   p.lw s5,4(%[p_data0]!);"
+                     "   p.lw s6,4(%[p_data1]!);"
+                     "   p.lw s7,4(%[p_data2]!);"
+                     "   p.lw s8,4(%[p_data3]!);"
+                     "   pv.sdotsp.b %[_acc0],s5,s9;"
+                     "   pv.sdotsp.b %[_acc1],s6,s9;"
+                     "   pv.sdotsp.b %[_acc2],s7,s9;"
+                     "36:pv.sdotsp.b %[_acc3],s8,s9;"
+                     : [p_weight] "+r" (_p_weight_iter),
+                       [_acc0] "+r" (_acc0),
+                       [_acc1] "+r" (_acc1),
+                       [_acc2] "+r" (_acc2),
+                       [_acc3] "+r" (_acc3),
+                       [p_data0] "+r" (_p_data_iter0),
+                       [p_data1] "+r" (_p_data_iter1),
+                       [p_data2] "+r" (_p_data_iter2),
+                       [p_data3] "+r" (_p_data_iter3)
+                     : [num_t] "r" (NET_L1_WEIGHT_LEN / 4)
+                     : "s5", "s6", "s7", "s8", "s9");
 
         // store the values as 1 byte in the appropriate position
-        *(_p_result_iter + 0 * NET_C) = _acc0;
-        *(_p_result_iter + 1 * NET_C) = _acc1;
-        *(_p_result_iter + 2 * NET_C) = _acc2;
-        *(_p_result_iter + 3 * NET_C) = _acc3;
-
-        // go to the next value in the thread data
-        _p_result_iter++;
+        *(p_result + _ch + 0 * NET_C) = _acc0;
+        *(p_result + _ch + 1 * NET_C) = _acc1;
+        *(p_result + _ch + 2 * NET_C) = _acc2;
+        *(p_result + _ch + 3 * NET_C) = _acc3;
     }
 }
 
@@ -155,13 +166,15 @@ void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
                                                  int32_t* p_result) {
 
     // setup iterators
-    const int8_t* _p_data_iter;
+    const int8_t* _p_data_iter0;
+    const int8_t* _p_data_iter1;
+    const int8_t* _p_data_iter2;
+    const int8_t* _p_data_iter3;
     const int8_t* _p_weight_iter = p_weight;
     int32_t* _p_result_iter = p_result;
 
     // declare local variables
     int32_t _acc0, _acc1, _acc2, _acc3;
-    v4s _x0, _x1, _x2, _x3, _y;
 
     for (int _ch = 0; _ch < NET_C; _ch++) {
 
@@ -174,49 +187,61 @@ void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
         _acc3 = offset;
 
         // part in split A
-        // TODO this is wrong for the last region!! Add a stride argument
-        _p_data_iter = p_data_a + _ch * stride_a;
+        _p_data_iter0 = p_data_a + _ch * stride_a;
+        _p_data_iter1 = p_data_a + _ch * stride_a + 1 * _T_SPLIT_MEM_SIZE;
+        _p_data_iter2 = p_data_a + _ch * stride_a + 2 * _T_SPLIT_MEM_SIZE;
+        _p_data_iter3 = p_data_a + _ch * stride_a + 3 * _T_SPLIT_MEM_SIZE;
 
-        // do the dot product of 4 values at the same time
-        for (int _i = 0; _i < num_elems_in_a / 4; _i++) {
-            // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
-            _y = *((v4s*)_p_weight_iter);
+        asm volatile("lp.setup x0,%[num_t],36;"
+                     "   p.lw s9,4(%[p_weight]!);"
+                     "   p.lw s5,4(%[p_data0]!);"
+                     "   p.lw s6,4(%[p_data1]!);"
+                     "   p.lw s7,4(%[p_data2]!);"
+                     "   p.lw s8,4(%[p_data3]!);"
+                     "   pv.sdotsp.b %[_acc0],s5,s9;"
+                     "   pv.sdotsp.b %[_acc1],s6,s9;"
+                     "   pv.sdotsp.b %[_acc2],s7,s9;"
+                     "36:pv.sdotsp.b %[_acc3],s8,s9;"
+                     : [p_weight] "+r" (_p_weight_iter),
+                       [_acc0] "+r" (_acc0),
+                       [_acc1] "+r" (_acc1),
+                       [_acc2] "+r" (_acc2),
+                       [_acc3] "+r" (_acc3),
+                       [p_data0] "+r" (_p_data_iter0),
+                       [p_data1] "+r" (_p_data_iter1),
+                       [p_data2] "+r" (_p_data_iter2),
+                       [p_data3] "+r" (_p_data_iter3)
+                     : [num_t] "r" (num_elems_in_a / 4)
+                     : "s5", "s6", "s7", "s8", "s9");
 
-            _acc0 = __SUMDOTP4(_x0, _y, _acc0);
-            _acc1 = __SUMDOTP4(_x1, _y, _acc1);
-            _acc2 = __SUMDOTP4(_x2, _y, _acc2);
-            _acc3 = __SUMDOTP4(_x3, _y, _acc3);
+        if (num_elems_in_a < NET_L1_WEIGHT_LEN) {
+            // part in split B
+            _p_data_iter0 = p_data_b + _ch * stride_b;
+            _p_data_iter1 = p_data_b + _ch * stride_b + 1 * _T_SPLIT_MEM_SIZE;
+            _p_data_iter2 = p_data_b + _ch * stride_b + 2 * _T_SPLIT_MEM_SIZE;
+            _p_data_iter3 = p_data_b + _ch * stride_b + 3 * _T_SPLIT_MEM_SIZE;
 
-            // go to the next iteration
-            _p_data_iter += 4;
-            _p_weight_iter += 4;
-        }
-
-        // part in split B
-        // TODO this is wrong for the last region!! Add a stride argument
-        _p_data_iter = p_data_b + _ch * stride_b;
-
-        // do the dot product
-        for (int _i = 0; _i < (NET_L1_WEIGHT_LEN - num_elems_in_a) / 4; _i++) {
-            // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
-            _y = *((v4s*)_p_weight_iter);
-
-            _acc0 = __SUMDOTP4(_x0, _y, _acc0);
-            _acc1 = __SUMDOTP4(_x1, _y, _acc1);
-            _acc2 = __SUMDOTP4(_x2, _y, _acc2);
-            _acc3 = __SUMDOTP4(_x3, _y, _acc3);
-
-            // go to the next iteration
-            _p_data_iter += 4;
-            _p_weight_iter += 4;
+            asm volatile("lp.setup x0,%[num_t],36;"
+                        "   p.lw s9,4(%[p_weight]!);"
+                        "   p.lw s5,4(%[p_data0]!);"
+                        "   p.lw s6,4(%[p_data1]!);"
+                        "   p.lw s7,4(%[p_data2]!);"
+                        "   p.lw s8,4(%[p_data3]!);"
+                        "   pv.sdotsp.b %[_acc0],s5,s9;"
+                        "   pv.sdotsp.b %[_acc1],s6,s9;"
+                        "   pv.sdotsp.b %[_acc2],s7,s9;"
+                        "36:pv.sdotsp.b %[_acc3],s8,s9;"
+                        : [p_weight] "+r" (_p_weight_iter),
+                        [_acc0] "+r" (_acc0),
+                        [_acc1] "+r" (_acc1),
+                        [_acc2] "+r" (_acc2),
+                        [_acc3] "+r" (_acc3),
+                        [p_data0] "+r" (_p_data_iter0),
+                        [p_data1] "+r" (_p_data_iter1),
+                        [p_data2] "+r" (_p_data_iter2),
+                        [p_data3] "+r" (_p_data_iter3)
+                        : [num_t] "r" ((NET_L1_WEIGHT_LEN - num_elems_in_a) / 4)
+                        : "s5", "s6", "s7", "s8", "s9");
         }
 
         // store the values as 1 byte in the appropriate position
@@ -489,7 +514,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
         // iterate over all the padding samples divided by 4, because we compute 4 values at the same time
         for (int _t_pad = 0; _t_pad < 8 / 4; _t_pad++) {
             // compute the intermediate vector
-            _net_fused_layer_1_2_kernel_conv(_p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
+            _net_fused_layer_1_2_kernel_conv(_core_id, _p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
 
             // move to the next 4 time samples
             _p_data_iter += 4;
@@ -592,7 +617,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
         // iterate over all the padding samples divided by 4, because we compute 4 values at the same time
         for (int _t_pad = 0; _t_pad < 8 / 4; _t_pad++) {
             // compute the intermediate vector
-            _net_fused_layer_1_2_kernel_conv(_p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
+            _net_fused_layer_1_2_kernel_conv(_core_id, _p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
 
             // move to the next 4 time samples
             _p_data_iter += 4;
@@ -695,7 +720,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
         // iterate over all the padding samples divided by 4, because we compute 4 values at the same time
         for (int _t_pad = 0; _t_pad < 8 / 4; _t_pad++) {
             // compute the intermediate vector
-            _net_fused_layer_1_2_kernel_conv(_p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
+            _net_fused_layer_1_2_kernel_conv(_core_id, _p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
 
             // move to the next 4 time samples
             _p_data_iter += 4;
@@ -798,7 +823,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
         // iterate over all the padding samples divided by 4, because we compute 4 values at the same time
         for (int _t_pad = 0; _t_pad < 8 / 4; _t_pad++) {
             // compute the intermediate vector
-            _net_fused_layer_1_2_kernel_conv(_p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
+            _net_fused_layer_1_2_kernel_conv(_core_id, _p_data_iter, _T_SPLIT_LEN, _p_weight_l1, _offset_l1, _p_thread_data);
 
             // move to the next 4 time samples
             _p_data_iter += 4;
@@ -872,7 +897,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
         // iterate over all the padding samples divided by 4, because we compute 4 values at the same time
         for (int _t_pad = 0; _t_pad < 8 / 4; _t_pad++) {
             // compute the intermediate vector
-            _net_fused_layer_1_2_kernel_conv(_p_data_iter, _T_SPLIT_LEN_LAST, _p_weight_l1, _offset_l1, _p_thread_data);
+            _net_fused_layer_1_2_kernel_conv(_core_id, _p_data_iter, _T_SPLIT_LEN_LAST, _p_weight_l1, _offset_l1, _p_thread_data);
 
             // move to the next 4 time samples
             _p_data_iter += 4;

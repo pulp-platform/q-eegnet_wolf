@@ -70,7 +70,8 @@ def test():
                                                         (True, True)]:
 
         # generate makefile
-        mkf = Makefile(opt_level=2 if duplicate_featuremap else 3)
+        # mkf = Makefile(opt_level=2 if duplicate_featuremap else 3)
+        mkf = Makefile(opt_level=3)
         mkf.add_fc_test_source("test.c")
         mkf.add_cl_test_source("cluster.c")
         mkf.add_cl_prog_source("net/fused_layer_1_2.c")

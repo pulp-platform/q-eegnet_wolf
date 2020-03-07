@@ -65,7 +65,7 @@ def test():
     ]:
 
         # generate makefile
-        mkf = Makefile(opt_level=2 if dup_inp else 3)
+        mkf = Makefile()
         mkf.add_fc_test_source("test.c")
         mkf.add_cl_test_source("cluster.c")
         mkf.add_cl_prog_source("net/model.c")
