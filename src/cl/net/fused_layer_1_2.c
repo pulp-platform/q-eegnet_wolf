@@ -77,11 +77,11 @@
  * @param offset Amount to offset the result at the end of the computation
  * @param p_result pointer to the result data of size [4, NET_C_ALIGN], must be thread local data
  */
-inline void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
-                                             unsigned int stride,
-                                             const int8_t* p_weight,
-                                             uint32_t offset,
-                                             int32_t* p_result) {
+void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
+                                      unsigned int stride,
+                                      const int8_t* p_weight,
+                                      uint32_t offset,
+                                      int32_t* p_result) {
 
     // setup iterators
     const int8_t* _p_data_iter;
@@ -145,14 +145,14 @@ inline void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
  * @param offset Amount to offset the result at the end of the computation
  * @param p_result pointer to the result data of size [4, NET_C_ALIGN], must be thread local data
  */
-inline void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
-                                                        const int8_t* p_data_b,
-                                                        unsigned int stride_a,
-                                                        unsigned int stride_b,
-                                                        unsigned int num_elems_in_a,
-                                                        const int8_t* p_weight,
-                                                        uint32_t offset,
-                                                        int32_t* p_result) {
+void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
+                                                 const int8_t* p_data_b,
+                                                 unsigned int stride_a,
+                                                 unsigned int stride_b,
+                                                 unsigned int num_elems_in_a,
+                                                 const int8_t* p_weight,
+                                                 uint32_t offset,
+                                                 int32_t* p_result) {
 
     // setup iterators
     const int8_t* _p_data_iter;
@@ -240,52 +240,66 @@ inline void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
  * @param p_pool_sum_0 Pointer to the first pool sum value, which is updated in this function
  * @param p_pool_sum_1 Pointer to the second pool sum value, which is updated in this function
  */
-inline void _net_fused_layer_1_2_kernel_dotp_acc(const int32_t* p_data,
-                                                 const int32_t* p_weight,
-                                                 int32_t threshold_0,
-                                                 int32_t threshold_1,
-                                                 int32_t* p_pool_sum_0,
-                                                 int32_t* p_pool_sum_1) {
+void _net_fused_layer_1_2_kernel_dotp_acc(const int32_t* p_data,
+                                          const int32_t* p_weight,
+                                          int32_t threshold_0,
+                                          int32_t threshold_1,
+                                          int32_t* p_pool_sum_0,
+                                          int32_t* p_pool_sum_1) {
 
     // iterators
-    const int32_t* _p_data_iter;
-    const int32_t* _p_weight_iter;
+    const int32_t* _p_data_iter = p_data;
+    const int32_t* _p_weight_iter = p_weight;
 
     // local registers
-    int32_t _a, _b0, _b1, _elem_0, _elem_1;
+    int32_t _a0, _a1, _a2, _a3;
+    int32_t _b0, _b1;
+    int32_t _elem_0_0 = 0, _elem_0_1 = 0, _elem_0_2 = 0, _elem_0_3 = 0;
+    int32_t _elem_1_0 = 0, _elem_1_1 = 0, _elem_1_2 = 0, _elem_1_3 = 0;
 
     // registers for the pool sum
     int32_t _pool_sum_0 = *p_pool_sum_0;
     int32_t _pool_sum_1 = *p_pool_sum_1;
 
-    // first output channel
-    for (int _i = 0; _i < 4; _i++) {
+    for (int _ch = 0; _ch < NET_C; _ch++) {
 
-        _p_data_iter = p_data + _i * NET_C_ALIGN;
-        _p_weight_iter = p_weight;
-        _elem_0 = 0;
-        _elem_1 = 0;
+        _a0 = *(_p_data_iter + 0 * NET_C_ALIGN);
+        _a1 = *(_p_data_iter + 1 * NET_C_ALIGN);
+        _a2 = *(_p_data_iter + 2 * NET_C_ALIGN);
+        _a3 = *(_p_data_iter + 3 * NET_C_ALIGN);
 
-        for (int _ch = 0; _ch < NET_C; _ch++) {
-            _a = *_p_data_iter;
-            _b0 = *_p_weight_iter;
-            _b1 = *(_p_weight_iter + NET_L2_WEIGHT_LEN);
+        _b0 = *_p_weight_iter;
+        _b1 = *(_p_weight_iter + NET_L2_WEIGHT_LEN);
 
-            _elem_0 = __MAC(_elem_0, _a, _b0);
-            _elem_1 = __MAC(_elem_1, _a, _b1);
+        _p_data_iter++;
+        _p_weight_iter++;
 
-            _p_data_iter++;
-            _p_weight_iter++;
-        }
+        _elem_0_0 = __MAC(_elem_0_0, _b0, _a0);
+        _elem_0_1 = __MAC(_elem_0_1, _b0, _a1);
+        _elem_0_2 = __MAC(_elem_0_2, _b0, _a2);
+        _elem_0_3 = __MAC(_elem_0_3, _b0, _a3);
 
-        // do ReLU on the first and second element
-        _elem_0 = __MAX(_elem_0, threshold_0);
-        _elem_1 = __MAX(_elem_1, threshold_1);
+        _elem_1_0 = __MAC(_elem_1_0, _b1, _a0);
+        _elem_1_1 = __MAC(_elem_1_1, _b1, _a1);
+        _elem_1_2 = __MAC(_elem_1_2, _b1, _a2);
+        _elem_1_3 = __MAC(_elem_1_3, _b1, _a3);
 
-        // add them to the pooling sum
-        _pool_sum_0 += _elem_0;
-        _pool_sum_1 += _elem_1;
     }
+
+    // do ReLU on the first and second element
+    _elem_0_0 = __MAX(_elem_0_0, threshold_0);
+    _elem_0_1 = __MAX(_elem_0_1, threshold_0);
+    _elem_0_2 = __MAX(_elem_0_2, threshold_0);
+    _elem_0_3 = __MAX(_elem_0_3, threshold_0);
+
+    _elem_1_0 = __MAX(_elem_1_0, threshold_1);
+    _elem_1_1 = __MAX(_elem_1_1, threshold_1);
+    _elem_1_2 = __MAX(_elem_1_2, threshold_1);
+    _elem_1_3 = __MAX(_elem_1_3, threshold_1);
+
+    // sum up the values
+    _pool_sum_0 += (_elem_0_0 + _elem_0_1) + (_elem_0_2 + _elem_0_3);
+    _pool_sum_1 += (_elem_1_0 + _elem_1_1) + (_elem_1_2 + _elem_1_3);
 
     // store the results back
     *p_pool_sum_0 = _pool_sum_0;
