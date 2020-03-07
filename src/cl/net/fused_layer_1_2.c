@@ -56,8 +56,9 @@
 // dimension the split, it is important that all parts are divisible by 8
 // We split it into 5 parts, of size
 #define _T_SPLIT_LEN 240
+#define _T_SPLIT_MEM_OFFSET 0
 #define _T_SPLIT_LEN_LAST (NET_L1_PAD_INPUT_LEN - (_T_SPLIT_LEN * 4))
-#define _T_SPLIT_MEM_SIZE (_T_SPLIT_LEN > _T_SPLIT_LEN_LAST ? _T_SPLIT_LEN : _T_SPLIT_LEN_LAST)
+#define _T_SPLIT_MEM_SIZE ((_T_SPLIT_LEN > _T_SPLIT_LEN_LAST ? _T_SPLIT_LEN : _T_SPLIT_LEN_LAST) * NET_C + _T_SPLIT_MEM_OFFSET)
 #if (_T_SPLIT_LEN % 8 != 0)
 #error "The splits must all be of size 8!"
 #endif
@@ -105,10 +106,10 @@ inline void _net_fused_layer_1_2_kernel_conv(const int8_t* p_data,
         // do the dot product of 4 values at the same time
         for (int _i = 0; _i < NET_L1_WEIGHT_LEN / 4; _i++) {
             // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE * NET_C));
+            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
+            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
+            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
+            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
             _y = *((v4s*)_p_weight_iter);
 
             _acc0 = __SUMDOTP4(_x0, _y, _acc0);
@@ -179,10 +180,10 @@ inline void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
         // do the dot product of 4 values at the same time
         for (int _i = 0; _i < num_elems_in_a / 4; _i++) {
             // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE * NET_C));
+            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
+            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
+            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
+            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
             _y = *((v4s*)_p_weight_iter);
 
             _acc0 = __SUMDOTP4(_x0, _y, _acc0);
@@ -202,10 +203,10 @@ inline void _net_fused_layer_1_2_kernel_conv_transition(const int8_t* p_data_a,
         // do the dot product
         for (int _i = 0; _i < (NET_L1_WEIGHT_LEN - num_elems_in_a) / 4; _i++) {
             // load the data
-            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE * NET_C));
-            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE * NET_C));
+            _x0 = *((v4s*)(_p_data_iter + 0 * _T_SPLIT_MEM_SIZE));
+            _x1 = *((v4s*)(_p_data_iter + 1 * _T_SPLIT_MEM_SIZE));
+            _x2 = *((v4s*)(_p_data_iter + 2 * _T_SPLIT_MEM_SIZE));
+            _x3 = *((v4s*)(_p_data_iter + 3 * _T_SPLIT_MEM_SIZE));
             _y = *((v4s*)_p_weight_iter);
 
             _acc0 = __SUMDOTP4(_x0, _y, _acc0);
@@ -361,7 +362,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
     int32_t* _p_offset_l2 = _args->p_offset_l2;
     int32_t* _p_thread_data = _args->p_thread_data;
 
-    int8_t* _p_data_b = _p_data_a + 4 * NET_C * _T_SPLIT_MEM_SIZE;
+    int8_t* _p_data_b = _p_data_a + 4 * _T_SPLIT_MEM_SIZE;
 
     // change the pointers to point to the data used by the specific core
     _p_result += _core_id * 2 * NET_T8_ALIGN;
@@ -403,25 +404,25 @@ void _net_fused_layer_1_2_kernel(void* args) {
     // Copy the first split and also start copying the second split over
     if (_core_id == 0) {
         rt_dma_memcpy_2d((unsigned int)_p_data_ext,
-                         (unsigned int)_p_data_a + 0 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 0 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 0, &_copy_start);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 1,
-                         (unsigned int)_p_data_a + 1 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 1 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_start);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 2,
-                         (unsigned int)_p_data_a + 2 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 2 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_start);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 3,
-                         (unsigned int)_p_data_a + 3 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 3 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
@@ -429,25 +430,25 @@ void _net_fused_layer_1_2_kernel(void* args) {
 
         // also start to copy the next part over
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + _T_SPLIT_LEN,
-                         (unsigned int)_p_data_b + 0 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 0 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 0, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + _T_SPLIT_LEN + 1,
-                         (unsigned int)_p_data_b + 1 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 1 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + _T_SPLIT_LEN + 2,
-                         (unsigned int)_p_data_b + 2 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 2 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + _T_SPLIT_LEN + 3,
-                         (unsigned int)_p_data_b + 3 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 3 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
@@ -541,25 +542,25 @@ void _net_fused_layer_1_2_kernel(void* args) {
     if (_core_id == 0) {
         // also start to copy the next part over
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 2 *_T_SPLIT_LEN,
-                         (unsigned int)_p_data_a + 0 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 0 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 0, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 2 *_T_SPLIT_LEN + 1,
-                         (unsigned int)_p_data_a + 1 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 1 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 2 *_T_SPLIT_LEN + 2,
-                         (unsigned int)_p_data_a + 2 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 2 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 2 *_T_SPLIT_LEN + 3,
-                         (unsigned int)_p_data_a + 3 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 3 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
@@ -644,25 +645,25 @@ void _net_fused_layer_1_2_kernel(void* args) {
     if (_core_id == 0) {
         // also start to copy the next part over
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 3 *_T_SPLIT_LEN,
-                         (unsigned int)_p_data_b + 0 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 0 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 0, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 3 *_T_SPLIT_LEN + 1,
-                         (unsigned int)_p_data_b + 1 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 1 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 3 *_T_SPLIT_LEN + 2,
-                         (unsigned int)_p_data_b + 2 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 2 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 3 *_T_SPLIT_LEN + 3,
-                         (unsigned int)_p_data_b + 3 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_b + 3 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN, // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN,         // number of elements to transfer per line
@@ -747,25 +748,25 @@ void _net_fused_layer_1_2_kernel(void* args) {
     if (_core_id == 0) {
         // also start to copy the next part over
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 4 *_T_SPLIT_LEN,
-                         (unsigned int)_p_data_a + 0 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 0 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN_LAST, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN,      // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN_LAST,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 0, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 4 *_T_SPLIT_LEN + 1,
-                         (unsigned int)_p_data_a + 1 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 1 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN_LAST, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN,      // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN_LAST,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 4 *_T_SPLIT_LEN + 2,
-                         (unsigned int)_p_data_a + 2 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 2 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN_LAST, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN,      // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN_LAST,         // number of elements to transfer per line
                          RT_DMA_DIR_EXT2LOC, 1, &_copy_comp);
         rt_dma_memcpy_2d((unsigned int)_p_data_ext + 4 *_T_SPLIT_LEN + 3,
-                         (unsigned int)_p_data_a + 3 * NET_C * _T_SPLIT_MEM_SIZE,
+                         (unsigned int)_p_data_a + 3 * _T_SPLIT_MEM_SIZE,
                          sizeof(int8_t) * NET_C * _T_SPLIT_LEN_LAST, // number of elements in total
                          sizeof(int8_t) * NET_L1_PAD_INPUT_LEN,      // length of each line (row)
                          sizeof(int8_t) * _T_SPLIT_LEN_LAST,         // number of elements to transfer per line
@@ -884,7 +885,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
 void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
 
     // allocate memory for two results and two inputs
-    int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_C_ALIGN * 8 * _T_SPLIT_MEM_SIZE);
+    int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * 8 * _T_SPLIT_MEM_SIZE);
 
     int8_t* _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 
@@ -961,7 +962,7 @@ void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
     rt_dma_wait(&_copy);
 
     // free all the memory
-    rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_C * 8 * _T_SPLIT_MEM_SIZE);
+    rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * 8 * _T_SPLIT_MEM_SIZE);
     rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 
     rt_free(RT_ALLOC_CL_DATA, _p_weight_l1_loc, sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN);
