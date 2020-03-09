@@ -103,7 +103,6 @@ void _net_fused_layer_1_2_kernel_conv(unsigned int core_id,
         //if (_ch >= NET_C) _ch -= NET_C;
         int _ch = _ch_t;
 
-
         // setup the iteration
         _p_data_iter0 = p_data + _ch * stride;
         _p_data_iter1 = p_data + _ch * stride + 1 * _T_SPLIT_MEM_SIZE;
