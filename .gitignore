@@ -15,3 +15,5 @@ src/cl/net/net.h
 src/cl/net/net.c
 src/cl/input.h
 src/cl/input.c
+
+*.ods\#
