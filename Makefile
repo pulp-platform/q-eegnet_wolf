@@ -20,7 +20,10 @@ PULP_APP_CL_SRCS = \
 	src/cl/func/flip.c \
 	src/cl/func/dotp.c \
 
-PULP_CFLAGS = -O2 -g -DROUND
+PULP_CFLAGS = -O3 -g
+
+# Set Rounding mode (leave disabled)
+# PULP_CFLAGS += "-DROUND"
 
 # flip layer 1 and layer 3 for faster dot product implementatoin
 PULP_CFLAGS += "-DFLIP_LAYERS"
@@ -48,6 +51,9 @@ PULP_CFLAGS += "-DDUPLICATE_FEATUREMAP"
 
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"
+
+# do Power Measurement
+# PULP_CFLAGS += "-DPOWER"
 
 PULP_LDFLAGS += -lplpdsp
 
