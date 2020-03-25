@@ -37,6 +37,48 @@
 
 #endif
 
+#if CONV_VERSION == -1
+
+void func_conv(const int8_t* p_a,
+               unsigned int a_len,
+               const int8_t* p_b,
+               unsigned int b_len,
+               int32_t* p_res) {
+
+    // Flip vectors a and b if b is larger than a
+    if (a_len < b_len) {
+        const int8_t* p_tmp = p_a;
+        p_a = p_b;
+        p_b = p_tmp;
+        unsigned int tmp_len = a_len;
+        a_len = b_len;
+        b_len = tmp_len;
+    }
+
+    const int8_t* p_x;
+    const int8_t* p_y;
+
+    int res_len = a_len - b_len + 1;
+
+    for (int i_out = 0; i_out < res_len; i_out++) {
+
+        p_x = p_a + i_out;
+        p_y = p_b + b_len - 1;
+
+        int32_t acc = 0;
+
+        for (int i_in = 0; i_in < b_len; i_in++) {
+            acc += (*(p_x++)) * (*(p_y--));
+        }
+
+        p_res[i_out] = acc;
+
+    }
+
+}
+
+#else //CONV_VERSION >= 0
+
 void func_conv(const int8_t* p_a,
                unsigned int a_len,
                const int8_t* p_b,
@@ -386,6 +428,8 @@ void func_conv(const int8_t* p_a,
     }
 
 }
+
+#endif //CONV_VERSION == -1
 
 
 /**
