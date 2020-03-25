@@ -23,6 +23,8 @@ DEFAULT_HEADER_NAME = "../src/cl/net/net.h"
 DEFAULT_CONFIG_JSON = "config.json"
 DEFAULT_NET_NPZ = "net.npz"
 
+WEIGHT_L1_PAD = 4 * 0
+
 
 def gen_net_header(net_file, config_file, output_file):
 
@@ -71,9 +73,14 @@ def gen_net_header(net_file, config_file, output_file):
     weight, weight_scale = convert.inq_conv2d(net, "conv1")
     weight = weight.reshape(net_params["F1"], 64)
     weight_reverse, _ = convert.inq_conv2d(net, "conv1", store_reversed=True)
+    weight_reverse = weight_reverse.reshape(net_params["F1"], 64)
     bn_scale, bn_offset = convert.batch_norm(net, "batch_norm1")
     output_scale = convert.ste_quant(net, "quant2")
     factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset)
+
+    # add padding to the weight vector of 4
+    weight_reverse_pad = np.zeros((net_params["F1"], 64 + WEIGHT_L1_PAD))
+    weight_reverse_pad[:, :-WEIGHT_L1_PAD] = weight_reverse
 
     header.add(HeaderComment("Layer 1\n"
                              "=======\n"
@@ -89,8 +96,10 @@ def gen_net_header(net_file, config_file, output_file):
     header.add(HeaderArray("net_l1_factor", "int32_t", factor.ravel()))
     header.add(HeaderArray("net_l1_offset", "int32_t", offset.ravel()))
     header.add(HeaderConstant("NET_L1_WEIGHT_LEN", weight.shape[-1]))
+    header.add(HeaderConstant("NET_L1_WEIGHT_LEN_ALIGN", weight_reverse_pad.shape[-1]))
     header.add(HeaderArray("net_l1_weight", "int8_t", weight.ravel()))
     header.add(HeaderArray("net_l1_weight_reverse", "int8_t", weight_reverse.ravel()))
+    header.add(HeaderArray("net_l1_weight_reverse_pad", "int8_t", weight_reverse_pad.ravel()))
 
     # layer2
     input_scale = convert.ste_quant(net, "quant2")

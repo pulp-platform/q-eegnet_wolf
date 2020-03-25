@@ -406,7 +406,7 @@ void _net_fused_layer_1_2_kernel(void* args) {
 
     // change the pointers to point to the data used by the specific core
     _p_result += _core_id * 2 * NET_T8_ALIGN;
-    _p_weight_l1 += _core_id * NET_L1_WEIGHT_LEN;
+    _p_weight_l1 += _core_id * NET_L1_WEIGHT_LEN_ALIGN;
     _p_factor_l1 += _core_id;
     _p_offset_l1 += _core_id;
     _p_weight_l2 += _core_id * 2 * NET_L2_WEIGHT_LEN;
@@ -929,7 +929,7 @@ void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
 
     int8_t* _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
 
-    int8_t* _p_weight_l1_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN);
+    int8_t* _p_weight_l1_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN_ALIGN);
     int32_t* _p_factor_l1_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F1);
     int32_t* _p_offset_l1_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F1);
 
@@ -948,9 +948,9 @@ void net_fused_layer_1_2(const int8_t* p_data, int8_t* p_result) {
     rt_dma_copy_t _copy;
 
     // load all the weights of layer 1
-    rt_dma_memcpy((unsigned int)net_l1_weight_reverse,
+    rt_dma_memcpy((unsigned int)net_l1_weight_reverse_pad,
                   (unsigned int)_p_weight_l1_loc,
-                  sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN,
+                  sizeof(int8_t) * NET_F1 * NET_L1_WEIGHT_LEN_ALIGN,
                   RT_DMA_DIR_EXT2LOC, 0, &_copy);
     rt_dma_memcpy((unsigned int)net_l1_factor,
                   (unsigned int)_p_factor_l1_loc,
