@@ -27,8 +27,7 @@ DEFAULT_NET_NPZ = "net.npz"
 DEFAULT_INPUT_NPZ = "input.npz"
 
 
-def gen_input_header(net_file, config_file, input_file, output_file):
-
+def gen_input_header_from_file(net_file, config_file, input_file, output_file):
     # load network
     net = np.load(net_file)
     data = np.load(input_file)
@@ -39,14 +38,18 @@ def gen_input_header(net_file, config_file, input_file, output_file):
     # we only need the network parameters
     net_params = config["indiv"]["net"]["params"]
 
+    gen_input_header(net, net_params, data["input"], output_file)
+
+
+def gen_input_header(net, net_params, data, output_file):
+
     # only allow nets with 255 levels
     assert net_params["weightInqNumLevels"] == 255
     assert net_params["actSTENumLevels"] == 255
 
     # extract and prepare the input data
-    input = data["input"]
     scale_factor = convert.ste_quant(net, "quant1")
-    input_quant = F.quantize_to_int(input, scale_factor)
+    input_quant = F.quantize_to_int(data, scale_factor)
     input_quant_align = align_array(input_quant)
 
     # also generate the padded input vector
@@ -72,4 +75,4 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", help="numpy file containing the input", default=DEFAULT_INPUT_NPZ)
     args = parser.parse_args()
 
-    gen_input_header(args.net, args.config, args.input, args.output)
+    gen_input_header_from_file(args.net, args.config, args.input, args.output)
