@@ -22,7 +22,6 @@ typedef struct {
     int8_t* p_weight;
     int32_t* p_factor;
     int32_t* p_offset;
-    int32_t* p_thread_data;
 } _net_layer4_kernel_t;
 
 /**
@@ -40,19 +39,17 @@ void _net_layer4_kernel(void* args) {
     int8_t* _p_weight = _args->p_weight;
     int32_t* _p_factor_iter = _args->p_factor;
     int32_t* _p_offset_iter = _args->p_offset;
-    int32_t* _p_thread_data = _args->p_thread_data;
 
     // go to the correct position for the thread
     _p_weight += _core_id * NET_L4_WEIGHT_LEN;
     _p_result += _core_id * NET_T64_ALIGN;
-    _p_thread_data += _core_id * NET_T64;
     _p_factor_iter += _core_id;
     _p_offset_iter += _core_id;
 
-    int32_t* _p_thread_data_iter;
     int8_t* _p_data_iter = _p_data;
     int8_t* _p_weight_iter = _p_weight;
     int8_t* _p_result_iter = _p_result;
+    int8_t* _p_result_inner_iter;
 
     int32_t _factor;
     int32_t _offset;
@@ -69,7 +66,7 @@ void _net_layer4_kernel(void* args) {
         _relu_threshold = -(_offset >> 3);
 
         _p_data_iter = _p_data;
-        _p_thread_data_iter = _p_thread_data;
+        _p_result_inner_iter = _p_result_iter;
 
         // iterate over all output time samples
         for (int _t_out = 0; _t_out < NET_T64; _t_out++) {
@@ -93,13 +90,15 @@ void _net_layer4_kernel(void* args) {
                 _p_data_iter += NET_F2;
             }
 
+            // do the BN
+            _sum = _sum + _offset;
+            _sum = _sum / _factor;
+            // clip
+            _sum = __CLIP_R(_sum, 127);
             // store the result
-            *(_p_thread_data_iter++) = _sum;
+            *(_p_result_inner_iter++) = _sum;
 
         }
-
-        // now, we have computed the entire temporary output
-        func_transform_32to8_bias(_p_thread_data, NET_T64, _factor, _offset, 1, _p_result_iter);
 
         // go to the next _k (for this core)
         _k += NUM_WORKERS;
@@ -141,7 +140,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // allocate local memory
     int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_T8_ALIGN * NET_F2);
     int8_t* _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    int32_t* _p_tmp_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NUM_WORKERS * NET_T64);
     int8_t* _p_weight_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_F2);
     int32_t* _p_factor_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
     int32_t* _p_offset_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
@@ -180,7 +178,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     _args.p_weight = _p_weight_loc;
     _args.p_factor = _p_factor_loc;
     _args.p_offset = _p_offset_loc;
-    _args.p_thread_data = _p_tmp_result_loc;
 
     // call the kernel
     rt_team_fork(NUM_WORKERS, _net_layer4_kernel, &_args);
@@ -195,7 +192,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // free the memory
     rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_T8_ALIGN * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    rt_free(RT_ALLOC_CL_DATA, _p_tmp_result_loc, sizeof(int32_t) * NUM_WORKERS * NET_T64_ALIGN);
     rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_F2 * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_factor_loc, sizeof(int32_t) * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_offset_loc, sizeof(int32_t) * NET_F2);
@@ -206,7 +202,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // allocate local memory
     int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_T8_ALIGN * NET_F2);
     int8_t* _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    int32_t* _p_tmp_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_T64);
     int8_t* _p_weight_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_F2);
     int32_t* _p_factor_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
     int32_t* _p_offset_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
@@ -244,7 +239,7 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // set up the iterators
     int8_t* _p_data_loc_iter;
     int8_t* _p_result_loc_iter = _p_result_loc;
-    int32_t* _p_tmp_result_loc_iter;
+    int8_t* _p_result_loc_inner_iter;
     int8_t* _p_weight_loc_iter = _p_weight_loc;
     int32_t* _p_factor_loc_iter = _p_factor_loc;
     int32_t* _p_offset_loc_iter = _p_offset_loc;
@@ -262,8 +257,8 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
         // reset the data iterator (for each output channel, we have to go over the entire data.
         _p_data_loc_iter = _p_data_loc;
 
-        // reset the tmp result pointer
-        _p_tmp_result_loc_iter = _p_tmp_result_loc;
+        // set the result inner loop iterator
+        _p_result_loc_inner_iter = _p_result_loc_iter;
 
         // prepare the convert factor, offset and relu threshold
         _convert_factor = *(_p_factor_loc_iter++);
@@ -292,13 +287,15 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 _p_data_loc_iter += NET_F2;
             }
 
+            // do the BN
+            _sum = _sum + _convert_offset;
+            _sum = _sum / _convert_factor;
+            // clip
+            _sum = __CLIP_R(_sum, 127);
             // store the result
-            *(_p_tmp_result_loc_iter++) = _sum;
+            *(_p_result_loc_inner_iter++) = _sum;
 
         }
-
-        // now, we have computed the entire temporary output
-        func_transform_32to8_bias(_p_tmp_result_loc, NET_T64, _convert_factor, _convert_offset, 1, _p_result_loc_iter);
 
         // go to the next set of filters
         _p_weight_loc_iter += NET_F2;
@@ -317,7 +314,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // free the memory
     rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_T8_ALIGN * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    rt_free(RT_ALLOC_CL_DATA, _p_tmp_result_loc, sizeof(int32_t) * NET_T64_ALIGN);
     rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_F2 * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_factor_loc, sizeof(int32_t) * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_offset_loc, sizeof(int32_t) * NET_F2);
@@ -330,7 +326,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // allocate local memory
     int8_t* _p_data_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T8_ALIGN);
     int8_t* _p_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    int32_t* _p_tmp_result_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_T64);
     int8_t* _p_weight_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int8_t) * NET_F2 * NET_F2);
     int32_t* _p_factor_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
     int32_t* _p_offset_loc = rt_alloc(RT_ALLOC_CL_DATA, sizeof(int32_t) * NET_F2);
@@ -368,7 +363,7 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // set up the iterators
     int8_t* _p_data_loc_iter;
     int8_t* _p_result_loc_iter = _p_result_loc;
-    int32_t* _p_tmp_result_loc_iter;
+    int8_t* _p_result_loc_inner_iter;
     int8_t* _p_weight_loc_iter = _p_weight_loc;
     int32_t* _p_factor_loc_iter = _p_factor_loc;
     int32_t* _p_offset_loc_iter = _p_offset_loc;
@@ -386,8 +381,8 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
         // reset the data iterator (for each output channel, we have to go over the entire data.
         _p_data_loc_iter = _p_data_loc;
 
-        // reset the tmp result pointer
-        _p_tmp_result_loc_iter = _p_tmp_result_loc;
+        // set the result inner loop iterator
+        _p_result_loc_inner_iter = _p_result_loc_iter;
 
         // prepare the convert factor, offset and relu threshold
         _convert_factor = *(_p_factor_loc_iter++);
@@ -416,13 +411,15 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 _p_data_loc_iter += 1;
             }
 
+            // do the BN
+            _sum = _sum + _convert_offset;
+            _sum = _sum / _convert_factor;
+            // clip
+            _sum = __CLIP_R(_sum, 127);
             // store the result
-            *(_p_tmp_result_loc_iter++) = _sum;
+            *(_p_result_loc_inner_iter++) = _sum;
 
         }
-
-        // now, we have computed the entire temporary output
-        func_transform_32to8_bias(_p_tmp_result_loc, NET_T64, _convert_factor, _convert_offset, 1, _p_result_loc_iter);
 
         // go to the next set of filters
         _p_weight_loc_iter += NET_F2;
@@ -441,7 +438,6 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
     // free the memory
     rt_free(RT_ALLOC_CL_DATA, _p_data_loc, sizeof(int8_t) * NET_T8_ALIGN * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_result_loc, sizeof(int8_t) * NET_F2 * NET_T64_ALIGN);
-    rt_free(RT_ALLOC_CL_DATA, _p_tmp_result_loc, sizeof(int32_t) * NET_T64_ALIGN);
     rt_free(RT_ALLOC_CL_DATA, _p_weight_loc, sizeof(int8_t) * NET_F2 * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_factor_loc, sizeof(int32_t) * NET_F2);
     rt_free(RT_ALLOC_CL_DATA, _p_offset_loc, sizeof(int32_t) * NET_F2);
