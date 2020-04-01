@@ -19,7 +19,7 @@ class GoldenModel:
     """
     Golden EEGNet Model
     """
-    def __init__(self, config_file, net_file, clip_balanced=True, no_scale_between_l1_l2=False):
+    def __init__(self, config_file, net_file, clip_balanced=True, no_scale_between_l1_l2=False, reorder_bn=True):
         """
         Initialize the model based on the config file and the npz file containing all weights
 
@@ -51,6 +51,9 @@ class GoldenModel:
         self.C = net_params["C"]
         self.T = net_params["T"]
         self.N = net_params["N"]
+
+        self.reorder_bn = reorder_bn
+        net_params["reorder_bn"] = reorder_bn
 
         if self.F2 is None:
             self.F2 = self.D * self.F1
@@ -258,7 +261,7 @@ class Layer2(Layer):
     """
     Convolution(channels) + BN + ReLU + Pool
     """
-    def __init__(self, net, C, T, F1, F2, clip_balanced=True, **params):
+    def __init__(self, net, C, T, F1, F2, reorder_bn=True, clip_balanced=True, **params):
         self.name = "Layer 2: Convolution in Space + Batch Norm + ReLU + Pooling"
         self.C = C
         self.T = T
@@ -267,6 +270,7 @@ class Layer2(Layer):
         self.input_shape = ((F1, C, T))
         self.output_shape = ((F2, T // 8))
         self.clip_balanced = clip_balanced
+        self.reorder_bn = reorder_bn
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "conv2")
@@ -298,9 +302,15 @@ class Layer2(Layer):
     def __call__(self, x):
         assert x.shape == self.input_shape
         y = F.depthwise_conv_space(x, self.weights)
-        y = F.relu(y, -(self.bias // 8))
-        y = F.pool(y, (1, 8))
-        y = F.apply_factor_offset(y, self.factor, self.bias, clip_balanced=self.clip_balanced)
+        if self.reorder_bn:
+            y = F.relu(y, -(self.bias // 8))
+            y = F.pool(y, (1, 8))
+            y = F.apply_factor_offset(y, self.factor, self.bias, clip_balanced=self.clip_balanced)
+        else:
+            y = F.apply_factor_offset(y, self.factor // 8, self.bias // 8,
+                                      clip_balanced=self.clip_balanced)
+            y = F.relu(y, (self.bias) * 0)
+            y = F.pool(y, (1, 8)) // 8
 
         return y
 
@@ -344,13 +354,14 @@ class Layer4(Layer):
     """
     Convolution(1x1) + BN + ReLU + Pool
     """
-    def __init__(self, net, T, F2, clip_balanced=True, **params):
+    def __init__(self, net, T, F2, reorder_bn=True, clip_balanced=True, **params):
         self.name = "Layer 4: Point Convolution + Batch Norm + ReLU + Pooling"
         self.T = T
         self.F2 = F2
         self.input_shape = ((F2, T // 8))
         self.output_shape = ((F2, T // 64))
         self.clip_balanced = clip_balanced
+        self.reorder_bn = reorder_bn
 
         # fetch weights
         self.weights, self.weight_scale = convert.inq_conv2d(net, "sep_conv2")
@@ -380,9 +391,15 @@ class Layer4(Layer):
     def __call__(self, x):
         assert x.shape == self.input_shape, "shape was {}".format(x.shape)
         y = F.pointwise_conv(x, self.weights)
-        y = F.relu(y, -(self.bias // 8))
-        y = F.pool(y, (1, 8))
-        y = F.apply_factor_offset(y, self.factor, self.bias, clip_balanced=self.clip_balanced)
+        if self.reorder_bn:
+            y = F.relu(y, -(self.bias // 8))
+            y = F.pool(y, (1, 8))
+            y = F.apply_factor_offset(y, self.factor, self.bias, clip_balanced=self.clip_balanced)
+        else:
+            y = F.apply_factor_offset(y, self.factor // 8, self.bias // 8,
+                                      clip_balanced=self.clip_balanced)
+            y = F.relu(y, (self.bias) * 0)
+            y = F.pool(y, (1, 8)) // 8
         return y
 
 

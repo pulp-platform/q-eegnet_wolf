@@ -19,11 +19,11 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input=False, no_div=False, pad_data=False):
+def gen_stimuli(random_input=False, no_div=False, pad_data=False, reorder_bn=True):
     """
     This function generates the stimuli (input and output) for the test
     """
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False, no_scale_between_l1_l2=no_div)
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False, no_scale_between_l1_l2=no_div, reorder_bn=reorder_bn)
     if random_input:
         x = np.random.randint(-60, 60, (model.C, model.T))
     else:
@@ -52,16 +52,17 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for flip_layers, intrinsic, parallel, stream, xcorr, fuse, no_div, dup_inp in [
-            (False, False, False, False, False, False, False, False),
-            (True, False, False, False, False, False, False, False),
-            (True, True, False, False, False, False, False, False),
-            (True, True, True, False, False, False, False, False),
-            (True, True, True, True, False, False, False, False),
-            (True, True, True, True, True, False, False, False),
-            (True, True, True, True, True, True, False, False),
-            (True, True, True, True, True, True, True, False),
-            (True, True, True, True, True, True, True, True)
+    for flip_layers, intrinsic, parallel, stream, xcorr, reorder, fuse, no_div, dup_inp in [
+            (False, False, False, False, False, False, False, False, False),
+            (True, False, False, False, False, False, False, False, False),
+            (True, True, False, False, False, False, False, False, False),
+            (True, True, True, False, False, False, False, False, False),
+            (True, True, True, True, False, False, False, False, False),
+            (True, True, True, True, True, False, False, False, False),
+            (True, True, True, True, True, True, False, False, False),
+            (True, True, True, True, True, True, True, False, False),
+            (True, True, True, True, True, True, True, True, False),
+            (True, True, True, True, True, True, True, True, True)
     ]:
 
         # generate makefile
@@ -98,11 +99,13 @@ def test():
             mkf.add_define("NO_INTERMEDIATE_SCALE")
         if dup_inp:
             mkf.add_define("DUPLICATE_FEATUREMAP")
+        if reorder:
+            mkf.add_define("REORDER_BN")
 
         mkf.write()
 
         # generate the stimuli
-        _, x_align, _, y_exp_align = gen_stimuli(no_div=no_div, pad_data=dup_inp)
+        _, x_align, _, y_exp_align = gen_stimuli(no_div=no_div, pad_data=dup_inp, reorder_bn=reorder)
 
         # prepare header file
         header = HeaderFile("test_stimuli.h")
@@ -132,6 +135,8 @@ def test():
             subcase_name = "+ double buffering"
         if xcorr:
             subcase_name = "+ cross correlations"
+        if reorder:
+            subcase_name = "+ reorder BN"
         if fuse:
             subcase_name = "+ fused layer 1+2"
         if no_div:

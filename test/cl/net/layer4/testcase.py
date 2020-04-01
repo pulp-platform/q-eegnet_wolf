@@ -19,11 +19,11 @@ NET_FILENAME = "../../../../data/net.npz"
 CONFIG_FILENAME = "../../../../data/config.json"
 
 
-def gen_stimuli(random_input, flip):
+def gen_stimuli(random_input, flip, reorder_bn):
     """
     This function generates the stimuli (input and output) for the test
     """
-    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False)
+    model = GoldenModel(CONFIG_FILENAME, NET_FILENAME, clip_balanced=False, reorder_bn=reorder_bn)
     layer = model.layers[3]
     if random_input:
         x = np.random.randint(-60, 60, (model.F2, model.T // 8))
@@ -51,58 +51,64 @@ def test():
 
     for flip_layers in [False, True]:
         for parallel in [False, True]:
+            for reorder in [False, True]:
 
-            if parallel and not flip_layers:
-                # not implemented
-                continue
+                if parallel and not flip_layers:
+                    # not implemented
+                    continue
 
-            # generate makefile
-            mkf = Makefile()
-            mkf.add_fc_test_source("test.c")
-            mkf.add_cl_test_source("cluster.c")
-            mkf.add_cl_prog_source("net/layer4.c")
-            mkf.add_cl_prog_source("net/net.c")
-            mkf.add_cl_prog_source("func/transform.c")
-            mkf.add_cl_prog_source("func/dotp.c")
+                # generate makefile
+                mkf = Makefile()
+                mkf.add_fc_test_source("test.c")
+                mkf.add_cl_test_source("cluster.c")
+                mkf.add_cl_prog_source("net/layer4.c")
+                mkf.add_cl_prog_source("net/net.c")
+                mkf.add_cl_prog_source("func/transform.c")
+                mkf.add_cl_prog_source("func/dotp.c")
 
-            if flip_layers:
-                mkf.add_define("FLIP_LAYERS")
+                if flip_layers:
+                    mkf.add_define("FLIP_LAYERS")
 
-            if parallel:
-                mkf.add_define("PARALLEL")
+                if parallel:
+                    mkf.add_define("PARALLEL")
 
-            mkf.write()
+                if reorder:
+                    mkf.add_define("REORDER_BN")
 
-            random_input = False
+                mkf.write()
 
-            # generate the stimuli
-            _, x_align, _, y_exp_align = gen_stimuli(random_input, flip_layers)
+                random_input = False
 
-            # prepare header file
-            header = HeaderFile("test_stimuli.h")
-            header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-            header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-            header.write()
+                # generate the stimuli
+                _, x_align, _, y_exp_align = gen_stimuli(random_input, flip_layers, reorder)
 
-            # compile and run
-            os.system("make clean all run > {}".format(RESULT_FILE))
+                # prepare header file
+                header = HeaderFile("test_stimuli.h")
+                header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+                header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+                header.write()
 
-            # parse output
-            result = parse_output(RESULT_FILE)
+                # compile and run
+                os.system("make clean all run > {}".format(RESULT_FILE))
 
-            # log the result
-            options = []
-            if flip_layers:
-                options.append("flipped")
-            if parallel:
-                options.append("parallel")
+                # parse output
+                result = parse_output(RESULT_FILE)
 
-            subcase_name = "Layer 4 "
-            if options:
-                subcase_name += "; ".join(options)
-            else:
-                subcase_name += "naive"
-            logger.show_subcase_result(subcase_name, result)
+                # log the result
+                options = []
+                if flip_layers:
+                    options.append("flipped")
+                if parallel:
+                    options.append("parallel")
+                if reorder:
+                    options.append("reorder")
+
+                subcase_name = "Layer 4 "
+                if options:
+                    subcase_name += "; ".join(options)
+                else:
+                    subcase_name += "naive"
+                logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()
