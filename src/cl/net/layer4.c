@@ -63,7 +63,13 @@ void _net_layer4_kernel(void* args) {
 
         _factor = *_p_factor_iter;
         _offset = *_p_offset_iter;
+
+#ifdef REORDER_BN
         _relu_threshold = -(_offset >> 3);
+#else//REORDER_BN
+        _factor = _factor >> 3;
+        _offset = _offset >> 3;
+#endif//REORDER_BN
 
         _p_data_iter = _p_data;
         _p_result_inner_iter = _p_result_iter;
@@ -80,8 +86,15 @@ void _net_layer4_kernel(void* args) {
                 // compute the dot product
                 _elem = func_dotp(_p_data_iter, _p_weight_iter, NET_F2);
 
+#ifdef REORDER_BN
                 // do the ReLU
                 _elem = __MAX(_elem, _relu_threshold);
+#else//REORDER_BN
+                // do the BN
+                _elem = (_elem + _offset) / _factor;
+                // do the ReLU
+                _elem = __MAX(_elem, 0);
+#endif//REORDER_BN
 
                 // add the element to the sum
                 _sum += _elem;
@@ -90,9 +103,14 @@ void _net_layer4_kernel(void* args) {
                 _p_data_iter += NET_F2;
             }
 
+#ifdef REORDER_BN
             // do the BN
             _sum = _sum + _offset;
             _sum = _sum / _factor;
+#else//REORDER_BN
+            // do the division for avg pooling
+            _sum = _sum >> 3;
+#endif//REORDER_BN
             // clip
             _sum = __CLIP_R(_sum, 127);
             // store the result
@@ -263,7 +281,13 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
         // prepare the convert factor, offset and relu threshold
         _convert_factor = *(_p_factor_loc_iter++);
         _convert_offset = *(_p_offset_loc_iter++);
+
+#ifdef REORDER_BN
         _relu_threshold = -(_convert_offset >> 3);
+#else//REORDER_BN
+        _convert_factor = _convert_factor >> 3;
+        _convert_offset = _convert_offset >> 3;
+#endif//REORDER_BN
 
         // iterate over all output time samples
         for (int _t_out = 0; _t_out < NET_T64; _t_out++) {
@@ -277,8 +301,15 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 // compute the dot product
                 _elem = func_dotp(_p_data_loc_iter, _p_weight_loc_iter, NET_F2);
 
+#ifdef REORDER_BN
                 // do the ReLU
                 _elem = __MAX(_elem, _relu_threshold);
+#else//REORDER_BN
+                // do the BN
+                _elem = (_elem + _convert_offset) / _convert_factor;
+                // do the ReLU
+                _elem = __MAX(_elem, 0);
+#endif//REORDER_BN
 
                 // add the element to the sum
                 _sum += _elem;
@@ -287,9 +318,14 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 _p_data_loc_iter += NET_F2;
             }
 
+#ifdef REORDER_BN
             // do the BN
             _sum = _sum + _convert_offset;
             _sum = _sum / _convert_factor;
+#else//REORDER_BN
+            // do the division for avg pooling
+            _sum = _sum >> 3;
+#endif//REORDER_BN
             // clip
             _sum = __CLIP_R(_sum, 127);
             // store the result
@@ -387,7 +423,13 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
         // prepare the convert factor, offset and relu threshold
         _convert_factor = *(_p_factor_loc_iter++);
         _convert_offset = *(_p_offset_loc_iter++);
+
+#ifdef REORDER_BN
         _relu_threshold = -(_convert_offset >> 3);
+#else//REORDER_BN
+        _convert_factor = _convert_factor >> 3;
+        _convert_offset = _convert_offset >> 3;
+#endif//REORDER_BN
 
         // iterate over all output time samples
         for (int _t_out = 0; _t_out < NET_T64; _t_out++) {
@@ -401,8 +443,15 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 // compute the dot product
                 _elem = func_dotp_slow(_p_data_loc_iter, NET_T8_ALIGN, _p_weight_loc_iter, 1, NET_F2);
 
+#ifdef REORDER_BN
                 // do the ReLU
                 _elem = __MAX(_elem, _relu_threshold);
+#else//REORDER_BN
+                // do the BN
+                _elem = (_elem + _convert_offset) / _convert_factor;
+                // do the ReLU
+                _elem = __MAX(_elem, 0);
+#endif//REORDER_BN
 
                 // add the element to the sum
                 _sum += _elem;
@@ -411,9 +460,14 @@ void net_layer4(const int8_t* p_data, int8_t * p_result) {
                 _p_data_loc_iter += 1;
             }
 
+#ifdef REORDER_BN
             // do the BN
             _sum = _sum + _convert_offset;
             _sum = _sum / _convert_factor;
+#else//REORDER_BN
+            // do the division for avg pooling
+            _sum = _sum >> 3;
+#endif//REORDER_BN
             // clip
             _sum = __CLIP_R(_sum, 127);
             // store the result
