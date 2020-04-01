@@ -52,6 +52,9 @@ PULP_CFLAGS += "-DDUPLICATE_FEATUREMAP"
 # convolution version used
 PULP_CFLAGS += "-DCONV_VERSION=2"
 
+# reorder BN
+PULP_CFLAGS += "-DREORDER_BN"
+
 # do Power Measurement
 # PULP_CFLAGS += "-DPOWER"
 
