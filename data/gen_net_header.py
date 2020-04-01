@@ -79,8 +79,11 @@ def gen_net_header(net_file, config_file, output_file):
     factor, offset = convert.div_factor_batch_norm(input_scale, weight_scale, output_scale, bn_scale, bn_offset)
 
     # add padding to the weight vector of 4
-    weight_reverse_pad = np.zeros((net_params["F1"], 64 + WEIGHT_L1_PAD))
-    weight_reverse_pad[:, :-WEIGHT_L1_PAD] = weight_reverse
+    if WEIGHT_L1_PAD > 0:
+        weight_reverse_pad = np.zeros((net_params["F1"], 64 + WEIGHT_L1_PAD))
+        weight_reverse_pad[:, :-WEIGHT_L1_PAD] = weight_reverse
+    else:
+        weight_reverse_pad = weight_reverse
 
     header.add(HeaderComment("Layer 1\n"
                              "=======\n"
