@@ -53,10 +53,15 @@ def parse_output(filename):
             else:
                 parsed[parts[0]][parts[1].lower()] = parts[2]
 
-    # add IPC to the output
     for case in parsed.values():
+        # add IPC to the output
         if "cycles" in case and "instructions" in case:
             case["ipc"] = "{:.3f}".format(int(case["instructions"]) / int(case["cycles"]))
+
+        # add ms to output
+        if "cycles" in case:
+            f = 50e6 # 50MHz
+            case["ms"] = "{:.2f}".format(int(case["cycles"]) / f * 1000)
     return parsed
 
 
