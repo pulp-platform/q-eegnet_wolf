@@ -55,7 +55,13 @@
 
 // dimension the split, it is important that all parts are divisible by 8
 // We split it into 5 parts, of size
+
+#ifdef DEFAULT_DIM
 #define _T_SPLIT_LEN 240
+#else//DEFAULT_DIM
+#define _T_SPLIT_LEN 248
+#endif//DEFAULT_DIM
+
 #define _T_SPLIT_MEM_OFFSET (4 * 0)
 #define _T_SPLIT_LEN_LAST (NET_L1_PAD_INPUT_LEN - (_T_SPLIT_LEN * 4))
 #define _T_SPLIT_MEM_SIZE ((_T_SPLIT_LEN > _T_SPLIT_LEN_LAST ? _T_SPLIT_LEN : _T_SPLIT_LEN_LAST) * NET_C + _T_SPLIT_MEM_OFFSET)
