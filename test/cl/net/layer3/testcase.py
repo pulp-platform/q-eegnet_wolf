@@ -44,7 +44,7 @@ def test():
 
     logger = TestLogger(TESTNAME, show_title=False)
 
-    for parallel in [False, True]:
+    for simd, parallel in [(False, False), (True, False), (True, True)]:
 
         # generate makefile
         mkf = Makefile()
@@ -54,6 +54,9 @@ def test():
         mkf.add_cl_prog_source("net/net.c")
         mkf.add_cl_prog_source("func/transform.c")
         mkf.add_cl_prog_source("func/conv.c")
+
+        if not simd:
+            mkf.add_define("NO_SIMD")
 
         if parallel:
             mkf.add_define("PARALLEL")
@@ -79,6 +82,8 @@ def test():
 
         # log the result
         options = []
+        if simd:
+            options.append("simd")
         if parallel:
             options.append("parallel")
 

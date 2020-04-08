@@ -44,36 +44,45 @@ def test():
 
     logger = TestLogger(TESTNAME, show_title=False)
 
-    # generate makefile
-    mkf = Makefile()
-    mkf.add_fc_test_source("test.c")
-    mkf.add_cl_test_source("cluster.c")
-    mkf.add_cl_prog_source("net/layer5.c")
-    mkf.add_cl_prog_source("net/net.c")
-    mkf.add_cl_prog_source("func/transform.c")
-    mkf.add_cl_prog_source("func/dotp.c")
-    mkf.write()
+    for simd in [False, True]:
 
-    random_input = False
+        # generate makefile
+        mkf = Makefile()
+        mkf.add_fc_test_source("test.c")
+        mkf.add_cl_test_source("cluster.c")
+        mkf.add_cl_prog_source("net/layer5.c")
+        mkf.add_cl_prog_source("net/net.c")
+        mkf.add_cl_prog_source("func/transform.c")
+        mkf.add_cl_prog_source("func/dotp.c")
+        mkf.write()
 
-    # generate the stimuli
-    _, x_align, _, y_exp_align = gen_stimuli(random_input)
+        if not simd:
+            mkf.add_define("NO_SIMD")
 
-    # prepare header file
-    header = HeaderFile("test_stimuli.h")
-    header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
-    header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
-    header.write()
+        random_input = False
 
-    # compile and run
-    os.system("make clean all run > {}".format(RESULT_FILE))
+        # generate the stimuli
+        _, x_align, _, y_exp_align = gen_stimuli(random_input)
 
-    # parse output
-    result = parse_output(RESULT_FILE)
+        # prepare header file
+        header = HeaderFile("test_stimuli.h")
+        header.add(HeaderArray("x_vec", "int8_t", x_align.ravel()))
+        header.add(HeaderArray("y_exp_vec", "int8_t", y_exp_align.ravel()))
+        header.write()
 
-    # log the result
-    subcase_name = "Layer 5 naive"
-    logger.show_subcase_result(subcase_name, result)
+        # compile and run
+        os.system("make clean all run > {}".format(RESULT_FILE))
+
+        # parse output
+        result = parse_output(RESULT_FILE)
+
+        # log the result
+        subcase_name = "Layer 5 "
+        if simd:
+            subcase_name += "simd"
+        else:
+            subcase_name += "naive"
+        logger.show_subcase_result(subcase_name, result)
 
     # return summary
     return logger.summary()

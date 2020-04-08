@@ -85,6 +85,7 @@ def test():
         mkf.add_define("INTRINSIC_SCALE")
         mkf.add_define("CROSS_CORRELATE")
         mkf.add_define("FUSE_LAYERS")
+        mkf.add_define("DEFAULT_DIM")
 
         if no_intermediate_scale:
             mkf.add_define("NO_INTERMEDIATE_SCALE")

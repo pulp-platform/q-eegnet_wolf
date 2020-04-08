@@ -52,17 +52,18 @@ def test():
 
     logger = TestLogger(TESTNAME)
 
-    for flip_layers, intrinsic, parallel, stream, xcorr, reorder, fuse, no_div, dup_inp in [
-            (False, False, False, False, False, False, False, False, False),
-            (True, False, False, False, False, False, False, False, False),
-            (True, True, False, False, False, False, False, False, False),
-            (True, True, True, False, False, False, False, False, False),
-            (True, True, True, True, False, False, False, False, False),
-            (True, True, True, True, True, False, False, False, False),
-            (True, True, True, True, True, True, False, False, False),
-            (True, True, True, True, True, True, True, False, False),
-            (True, True, True, True, True, True, True, True, False),
-            (True, True, True, True, True, True, True, True, True)
+    for intrinsic, simd, flip_layers, parallel, stream, xcorr, fuse, no_div, reorder, dup_inp in [
+            (False, False, False, False, False, False, False, False, False, False),
+            (True, False, False, False, False, False, False, False, False, False),
+            (True, True, False, False, False, False, False, False, False, False),
+            (True, True, True, False, False, False, False, False, False, False),
+            (True, True, True, True, False, False, False, False, False, False),
+            (True, True, True, True, True, False, False, False, False, False),
+            (True, True, True, True, True, True, False, False, False, False),
+            (True, True, True, True, True, True, True, False, False, False),
+            (True, True, True, True, True, True, True, True, False, False),
+            (True, True, True, True, True, True, True, True, True, False),
+            (True, True, True, True, True, True, True, True, True, True)
     ]:
 
         # generate makefile
@@ -83,6 +84,8 @@ def test():
         mkf.add_cl_prog_source("func/flip.c")
         mkf.add_cl_prog_source("func/xcorr.c")
 
+        if not simd:
+            mkf.add_define("NO_SIMD")
         if flip_layers:
             mkf.add_define("FLIP_LAYERS")
         if parallel:
@@ -125,22 +128,24 @@ def test():
 
         # prepare the case name
         subcase_name = "naive"
-        if flip_layers:
-            subcase_name = "+ flip"
         if intrinsic:
             subcase_name = "+ intrinsic scale"
+        if simd:
+            subcase_name = "+ SIMD"
+        if flip_layers:
+            subcase_name = "+ flip"
         if parallel:
             subcase_name = "+ parallel"
         if stream:
             subcase_name = "+ double buffering"
         if xcorr:
             subcase_name = "+ cross correlations"
-        if reorder:
-            subcase_name = "+ reorder BN"
         if fuse:
             subcase_name = "+ fused layer 1+2"
         if no_div:
             subcase_name = "+ no division after layer 1"
+        if reorder:
+            subcase_name = "+ reorder BN"
         if dup_inp:
             subcase_name = "+ duplicate featuremap"
 
