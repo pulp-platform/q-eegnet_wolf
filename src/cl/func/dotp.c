@@ -8,8 +8,48 @@
  * @see https://github.com/pulp-platform/pulp-dsp/blob/master/src/BasicMathFunctions/kernels/plp_dot_prod_i8v_xpulpv2.c
  */
 
+
 #include "rt/rt_api.h"
 #include "functional.h"
+
+#ifdef NO_SIMD
+
+/**
+ * @brief computes dot product of the two vectors p_a and p_b
+ *
+ * @param p_a Pointer to first vector on L1 memory, should be aligned
+ * @param p_b Pointer to second vector on L1 memory, should be aligned
+ * @param length Lenght (number of elements) of both vectors
+ * @return dot product
+ */
+int32_t func_dotp(const int8_t* p_a,
+                  const int8_t* p_b,
+                  unsigned int length) {
+
+    //return func_dotp_slow(p_a, 1, p_b, 1, length);
+    int32_t acc = 0;
+    for (int i = 0; i < length; i++) {
+        acc += p_a[i] * p_b[i];
+    }
+    return acc;
+
+}
+
+int32_t func_dotp_slow(const int8_t* p_a,
+                       unsigned int a_stride,
+                       const int8_t* p_b,
+                       unsigned int b_stride,
+                       unsigned int length) {
+
+    int32_t acc = 0;
+    for (int i = 0; i < length; i++) {
+        acc += p_a[i * a_stride] * p_b[i * b_stride];
+    }
+    return acc;
+
+}
+
+#else//NO_SIMD
 
 /**
  * @brief computes dot product of the two vectors p_a and p_b
@@ -151,3 +191,5 @@ int32_t func_dotp_slow(const int8_t* p_a,
     return _acc0 + _acc1;
 
 }
+
+#endif//NO_SIMD
