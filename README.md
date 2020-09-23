@@ -11,8 +11,8 @@ Both the SDK (including the [PULP-RISCV toolchain](https://github.com/pulp-platf
 
 ## Usage
 
-This program requires the quantized EEGnet. For this, visit [QuantLab-RPR](https://iis-git.ee.ethz.ch/sctibor/quantlab-rpr "Quantlab-RPR including EEGNet")
-1. Setup [QuantLab-RPR](https://iis-git.ee.ethz.ch/sctibor/quantlab-rpr "Quantlab-RPR including EEGNet").
-2. In QuantLab, execute `python export-net-data.py --exp_id xxx --train`. This trains and quantizes the network, and exports the necessary data to into the folder `export`.
+This program requires the quantized EEGnet. For this, visit [QuantLab-RPR](https://github.com/xiaywang/QuantLab/tree/d4b3b563fa49c8e1243490d39d4a5c36d64d74b4 "Quantlab-RPR including EEGNet")
+1. Setup [QuantLab-RPR](https://github.com/xiaywang/QuantLab/tree/d4b3b563fa49c8e1243490d39d4a5c36d64d74b4 "Quantlab-RPR including EEGNet").
+2. In QuantLab, execute `python export_net_data.py --exp_id xxx --train`. This trains and quantizes the network, and exports the necessary data to into the folder `export`.
 3. Copy all files (`net.npz`, `input.npz`, `verification.npz`, `config.json`) from `[quantlab_root]/export/` into this project at `[project_root]/data/`.
 4. Run `./run.sh` to generate the necessary header files and run the code. You can also run the code on the board by running `./run.sh -b`.
